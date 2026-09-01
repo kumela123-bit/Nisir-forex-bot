@@ -15,6 +15,26 @@ A Telegram sales and payment-verification bot built with Python and
 Payment records are stored in `payments.db`, so pending reviews survive a bot
 restart. The database path can be changed with `PAYMENTS_DB_PATH`.
 
+## Admin dashboard
+
+The configured admin can open **⚙️ Admin Dashboard** from `/start` to view:
+
+- 👥 Users and VIP members
+- 💳 Pending payments and payment history
+- 📸 Pending and historical receipts
+- 📚 Course catalog and students
+- 🔐 VIP members, saved signals, and access controls
+- 🤝 Mentorship users and requests
+- 🔑 Course/VIP access status
+- 📢 Confirmation-protected broadcasts to users, VIP members, or course students
+- 👤 Additional admins
+- 📊 Statistics and revenue
+- ⚙️ Payment, price, and bot settings
+
+Admin actions are restricted to the owner admin or admins added through the
+dashboard. VIP revocations override previous approved VIP purchases until access
+is explicitly granted again or the user completes a new approved purchase.
+
 ## Run the bot
 
 Required values are stored as Replit Secrets:
