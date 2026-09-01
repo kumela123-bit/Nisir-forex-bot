@@ -382,6 +382,23 @@ async def button_handler(
         )
         return
 
+    if action == "vip_signal":
+        vip_product = PRODUCTS.get("vip")
+        if vip_product is None:
+            LOGGER.error("VIP product is missing from the PRODUCTS catalog")
+            return
+        await query.edit_message_text(
+            "🔐 VIP Signal\n\n"
+            "📈 For Serious Traders Who Want Real Results\n\n"
+            "✅ High-Probability Signals\n"
+            "✅ Smart Money Technique Based\n"
+            "✅ Daily Trade Alerts\n"
+            "✅ Risk & Money Management Included\n\n"
+            f"💰 Price: {vip_product.price}",
+            reply_markup=buy_now_menu("vip", "main_menu"),
+        )
+        return
+
     if action in PRODUCTS:
         text, back_to = product_description(action)
         product = PRODUCTS[action]
@@ -392,10 +409,10 @@ async def button_handler(
         return
 
     if action.startswith("buy_"):
-        product_id = action.removeprefix("buy_")
+        product_id = action[len("buy_") :]
         product = PRODUCTS.get(product_id)
         if not product:
-            await query.answer("Product not found.", show_alert=True)
+            await query.answer("⚠️ Product unavailable.", show_alert=True)
             return
         store.upsert_pending(user_id, product_id, product)
         await query.edit_message_text(
