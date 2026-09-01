@@ -180,32 +180,37 @@ def utc_now() -> str:
 
 def main_menu(user_id: int, settings: Settings) -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton("Courses", callback_data="courses")],
-        [InlineKeyboardButton("VIP Signal", callback_data="vip_signal")],
+        [InlineKeyboardButton("📚 Courses", callback_data="courses")],
+        [InlineKeyboardButton("🔐 VIP Signal", callback_data="vip_signal")],
         [
             InlineKeyboardButton(
-                "Private 1-to-1 Mentorship",
+                "🤝 Private 1-to-1 Mentorship",
                 callback_data="mentorship",
             )
         ],
         [
-            InlineKeyboardButton("My Account", callback_data="my_account"),
+            InlineKeyboardButton("👤 My Account", callback_data="my_account"),
             InlineKeyboardButton(
-                "Payment Status",
+                "💳 Payment Status",
                 callback_data="payment_status",
             ),
         ],
     ]
     if user_id == settings.admin_telegram_id:
         keyboard.append(
-            [InlineKeyboardButton("Admin Dashboard", callback_data="admin_dashboard")]
+            [
+                InlineKeyboardButton(
+                    "⚙️ Admin Dashboard",
+                    callback_data="admin_dashboard",
+                )
+            ]
         )
     return InlineKeyboardMarkup(keyboard)
 
 
 def main_menu_button() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Main Menu", callback_data="main_menu")]]
+        [[InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]]
     )
 
 
@@ -214,17 +219,17 @@ def courses_menu() -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
-                    "Basic Smart Money Concept — $39",
+                    "📘 Basic Smart Money Concept — $39",
                     callback_data="basic_smc",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "Advanced SMC Mastery — $59",
+                    "🎓 Advanced SMC Mastery — $59",
                     callback_data="advanced_smc",
                 )
             ],
-            [InlineKeyboardButton("Back", callback_data="main_menu")],
+            [InlineKeyboardButton("⬅️ Back", callback_data="main_menu")],
         ]
     )
 
@@ -232,9 +237,9 @@ def courses_menu() -> InlineKeyboardMarkup:
 def buy_now_menu(product_id: str, back_to: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("Buy Now", callback_data=f"buy_{product_id}")],
-            [InlineKeyboardButton("Back", callback_data=back_to)],
-            [InlineKeyboardButton("Main Menu", callback_data="main_menu")],
+            [InlineKeyboardButton("💳 Buy Now", callback_data=f"buy_{product_id}")],
+            [InlineKeyboardButton("⬅️ Back", callback_data=back_to)],
+            [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")],
         ]
     )
 
@@ -242,8 +247,13 @@ def buy_now_menu(product_id: str, back_to: str) -> InlineKeyboardMarkup:
 def payment_method_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("Payment Method", callback_data="bank_transfer")],
-            [InlineKeyboardButton("Main Menu", callback_data="main_menu")],
+            [
+                InlineKeyboardButton(
+                    "⭐ Payment Method",
+                    callback_data="bank_transfer",
+                )
+            ],
+            [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")],
         ]
     )
 
@@ -251,8 +261,8 @@ def payment_method_menu() -> InlineKeyboardMarkup:
 def i_paid_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("I Paid", callback_data="i_paid")],
-            [InlineKeyboardButton("Main Menu", callback_data="main_menu")],
+            [InlineKeyboardButton("✅ I Paid", callback_data="i_paid")],
+            [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")],
         ]
     )
 
@@ -262,11 +272,11 @@ def admin_payment_menu(user_id: int) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
-                    "Approve",
+                    "✅ Approve",
                     callback_data=f"approve_{user_id}",
                 ),
                 InlineKeyboardButton(
-                    "Reject",
+                    "❌ Reject",
                     callback_data=f"reject_{user_id}",
                 ),
             ]
@@ -277,47 +287,47 @@ def admin_payment_menu(user_id: int) -> InlineKeyboardMarkup:
 def product_description(product_id: str) -> tuple[str, str]:
     if product_id == "basic_smc":
         return (
-            "Basic Smart Money Concept\n\n"
-            "For beginners\n\n"
-            "• Market structure\n"
-            "• Liquidity concepts\n"
-            "• Entry and exit basics\n"
-            "• Risk management\n\n"
-            "Not included: personalized trading plan, lifetime support, "
+            "📘 Basic Smart Money Concept\n\n"
+            "🌱 For beginners\n\n"
+            "✅ Market structure\n"
+            "✅ Liquidity concepts\n"
+            "✅ Entry and exit basics\n"
+            "✅ Risk management\n\n"
+            "❌ Not included: personalized trading plan, lifetime support, "
             "or account-flip coaching.",
             "courses",
         )
     if product_id == "advanced_smc":
         return (
-            "Advanced SMC Mastery\n\n"
-            "For serious traders\n\n"
-            "• Institutional direction analysis\n"
-            "• Liquidity behavior\n"
-            "• Advanced trade management\n"
-            "• Psychology and discipline\n\n"
-            "Not included: personalized trading plan, lifetime support, "
+            "🎓 Advanced SMC Mastery\n\n"
+            "🔥 For serious traders\n\n"
+            "✅ Institutional direction analysis\n"
+            "✅ Liquidity behavior\n"
+            "✅ Advanced trade management\n"
+            "✅ Psychology and discipline\n\n"
+            "❌ Not included: personalized trading plan, lifetime support, "
             "or account-flip coaching.",
             "courses",
         )
     if product_id == "mentorship":
         return (
-            "Private 1-to-1 Mentorship\n\n"
-            "Limited slots available\n\n"
-            "• Personalized trading plan\n"
-            "• Live chart reviews\n"
-            "• Account growth guidance\n"
-            "• Lifetime support\n"
-            "• Live Q&A sessions\n"
-            "• Certificate of completion",
+            "🤝 Private 1-to-1 Mentorship\n\n"
+            "⏳ Limited slots available\n\n"
+            "✅ Personalized trading plan\n"
+            "✅ Live chart reviews\n"
+            "✅ Account growth guidance\n"
+            "✅ Lifetime support\n"
+            "✅ Live Q&A sessions\n"
+            "✅ Certificate of completion",
             "main_menu",
         )
     return (
-        "VIP Signal\n\n"
-        "For serious traders who want structured guidance\n\n"
-        "• High-probability signals\n"
-        "• Smart Money Concept-based analysis\n"
-        "• Daily trade alerts\n"
-        "• Risk and money management included",
+        "🔐 VIP Signal\n\n"
+        "📈 For serious traders who want structured guidance\n\n"
+        "✅ High-probability signals\n"
+        "✅ Smart Money Concept-based analysis\n"
+        "✅ Daily trade alerts\n"
+        "✅ Risk and money management included",
         "main_menu",
     )
 
@@ -328,8 +338,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not user or not update.message:
         return
     await update.message.reply_text(
-        "Welcome to Nisir Forex Academy.\n\n"
-        "Choose a service below to get started.",
+        "👋 Welcome to Nisir Forex Academy.\n\n"
+        "👇 Choose a service below to get started.",
         reply_markup=main_menu(user.id, settings),
     )
 
@@ -338,8 +348,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     del context
     if update.message:
         await update.message.reply_text(
-            "Nisir Forex Academy Help\n\n"
-            "Use /start to open the main menu and choose a course, "
+            "🤖 Nisir Forex Academy Help\n\n"
+            "🚀 Use /start to open the main menu and choose a course, "
             "VIP Signal, or private mentorship."
         )
 
@@ -359,15 +369,15 @@ async def button_handler(
 
     if action == "main_menu":
         await query.edit_message_text(
-            "Welcome to Nisir Forex Academy.\n\n"
-            "Choose a service below to get started.",
+            "🏠 Welcome to Nisir Forex Academy.\n\n"
+            "👇 Choose a service below to get started.",
             reply_markup=main_menu(user_id, settings),
         )
         return
 
     if action == "courses":
         await query.edit_message_text(
-            "Courses\n\nChoose your course below.",
+            "📚 Courses\n\n👇 Choose your course below.",
             reply_markup=courses_menu(),
         )
         return
@@ -376,7 +386,7 @@ async def button_handler(
         text, back_to = product_description(action)
         product = PRODUCTS[action]
         await query.edit_message_text(
-            f"{text}\n\nPrice: {product.price}",
+            f"{text}\n\n💰 Price: {product.price}",
             reply_markup=buy_now_menu(action, back_to),
         )
         return
@@ -389,10 +399,10 @@ async def button_handler(
             return
         store.upsert_pending(user_id, product_id, product)
         await query.edit_message_text(
-            "Payment\n\n"
-            f"Product: {product.name}\n"
-            f"Amount: {product.price}\n\n"
-            "Choose your payment method.",
+            "💳 Payment\n\n"
+            f"📦 Product: {product.name}\n"
+            f"💰 Amount: {product.price}\n\n"
+            "👇 Choose your payment method.",
             reply_markup=payment_method_menu(),
         )
         return
@@ -407,14 +417,14 @@ async def button_handler(
             return
         store.set_status(user_id, "awaiting_payment")
         await query.edit_message_text(
-            "Payment Method\n\n"
-            f"Product: {payment['product_name']}\n"
-            f"Amount: {payment['price']}\n\n"
-            f"Account holder: {settings.cbe_account_name}\n\n"
-            f"CBE: {settings.cbe_account_number}\n\n"
-            f"Abyssinia Bank: {settings.abyssinia_account_number}\n\n"
-            f"Telebirr: {settings.telebirr_number}\n\n"
-            "After making the payment, click the button below.",
+            "⭐ Payment Method\n\n"
+            f"📦 Product: {payment['product_name']}\n"
+            f"💰 Amount: {payment['price']}\n\n"
+            f"👤 Account holder: {settings.cbe_account_name}\n\n"
+            f"🏦 CBE: {settings.cbe_account_number}\n\n"
+            f"🏦 Abyssinia Bank: {settings.abyssinia_account_number}\n\n"
+            f"📱 Telebirr: {settings.telebirr_number}\n\n"
+            "✅ After making the payment, click the button below.",
             reply_markup=i_paid_menu(),
         )
         return
@@ -425,7 +435,7 @@ async def button_handler(
             return
         store.set_status(user_id, "waiting_receipt")
         await query.edit_message_text(
-            "Please send a screenshot or photo of your payment receipt here."
+            "📸 Please send a screenshot or photo of your payment receipt here."
         )
         return
 
@@ -434,9 +444,9 @@ async def button_handler(
             await query.answer("Access denied.", show_alert=True)
             return
         await query.edit_message_text(
-            "Admin Dashboard\n\n"
-            "Payment submissions are sent here for manual review.\n\n"
-            "Approve or reject each payment after checking the receipt.",
+            "⚙️ Admin Dashboard\n\n"
+            "📥 Payment submissions are sent here for manual review.\n\n"
+            "🔎 Approve or reject each payment after checking the receipt.",
             reply_markup=main_menu_button(),
         )
         return
@@ -459,7 +469,7 @@ async def button_handler(
             else "\nNo payment history yet."
         )
         await query.edit_message_text(
-            f"My Account\n\nTelegram ID: {user_id}{status}",
+            f"👤 My Account\n\n🆔 Telegram ID: {user_id}{status}",
             reply_markup=main_menu_button(),
         )
         return
@@ -467,13 +477,13 @@ async def button_handler(
     if action == "payment_status":
         payment = store.get(user_id)
         if not payment:
-            text = "Payment Status\n\nNo payment submission found."
+            text = "💳 Payment Status\n\n📭 No payment submission found."
         else:
             text = (
-                "Payment Status\n\n"
-                f"Product: {payment['product_name']}\n"
-                f"Amount: {payment['price']}\n"
-                f"Status: {payment['status'].replace('_', ' ').title()}"
+                "💳 Payment Status\n\n"
+                f"📦 Product: {payment['product_name']}\n"
+                f"💰 Amount: {payment['price']}\n"
+                f"📌 Status: {payment['status'].replace('_', ' ').title()}"
             )
         await query.edit_message_text(text, reply_markup=main_menu_button())
         return
@@ -510,14 +520,14 @@ async def handle_admin_decision(
         await context.bot.send_message(
             chat_id=target_user_id,
             text=(
-                "Payment rejected.\n\n"
-                "Your payment could not be verified. "
+                "❌ Payment rejected.\n\n"
+                "⚠️ Your payment could not be verified. "
                 "Please contact support if you believe this was a mistake."
             ),
         )
         await query.edit_message_reply_markup(reply_markup=None)
         if query.message:
-            await query.message.reply_text("Payment rejected.")
+            await query.message.reply_text("❌ Payment rejected.")
         return
 
     store.set_status(target_user_id, "approved")
@@ -531,8 +541,8 @@ async def handle_admin_decision(
             await context.bot.send_message(
                 chat_id=target_user_id,
                 text=(
-                    "Payment approved.\n\n"
-                    "Your VIP invite link is ready:\n"
+                    "✅ Payment approved.\n\n"
+                    "🔗 Your VIP invite link is ready:\n"
                     f"{invite_link.invite_link}"
                 ),
             )
@@ -541,20 +551,20 @@ async def handle_admin_decision(
             await context.bot.send_message(
                 chat_id=target_user_id,
                 text=(
-                    "Payment approved.\n\n"
-                    "Your VIP access is approved, but the invite link "
+                    "✅ Payment approved.\n\n"
+                    "⚠️ Your VIP access is approved, but the invite link "
                     "could not be generated automatically. Please contact support."
                 ),
             )
     else:
         await context.bot.send_message(
             chat_id=target_user_id,
-            text="Payment approved.\n\nYour purchase has been approved.",
+            text="✅ Payment approved.\n\n🎉 Your purchase has been approved.",
         )
 
     await query.edit_message_reply_markup(reply_markup=None)
     if query.message:
-        await query.message.reply_text("Payment approved successfully.")
+        await query.message.reply_text("✅ Payment approved successfully.")
 
 
 async def photo_handler(
@@ -571,15 +581,16 @@ async def photo_handler(
     payment = store.get(user.id)
     if not payment or payment["status"] != "waiting_receipt":
         await message.reply_text(
-            "Please start a purchase from /start before sending a receipt."
+            "📌 Please start a purchase from /start before sending a receipt."
         )
         return
 
     receipt_file_id = message.photo[-1].file_id
     store.save_receipt(user.id, receipt_file_id)
     await message.reply_text(
-        "Payment receipt received.\n\n"
-        "Your payment is now under review. You will be notified once it is approved.",
+        "✅ Payment receipt received.\n\n"
+        "🔎 Your payment is now under review. "
+        "You will be notified once it is approved.",
         reply_markup=main_menu_button(),
     )
 
@@ -587,22 +598,22 @@ async def photo_handler(
         await context.bot.send_message(
             chat_id=settings.admin_telegram_id,
             text=(
-                "New payment submission\n\n"
-                f"User ID: {user.id}\n"
-                f"Product: {payment['product_name']}\n"
-                f"Amount: {payment['price']}\n\n"
-                "Status: Under review"
+                "🔔 New payment submission\n\n"
+                f"👤 User ID: {user.id}\n"
+                f"📦 Product: {payment['product_name']}\n"
+                f"💰 Amount: {payment['price']}\n\n"
+                "🔎 Status: Under review"
             ),
         )
         await context.bot.send_photo(
             chat_id=settings.admin_telegram_id,
             photo=receipt_file_id,
             caption=(
-                "Payment receipt\n\n"
-                f"User ID: {user.id}\n"
-                f"Product: {payment['product_name']}\n"
-                f"Amount: {payment['price']}\n\n"
-                "Please manually verify this payment."
+                "📸 Payment receipt\n\n"
+                f"👤 User ID: {user.id}\n"
+                f"📦 Product: {payment['product_name']}\n"
+                f"💰 Amount: {payment['price']}\n\n"
+                "🔎 Please manually verify this payment."
             ),
             reply_markup=admin_payment_menu(user.id),
         )
@@ -614,7 +625,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     del context
     if update.message:
         await update.message.reply_text(
-            "Use /start to open the Nisir Forex Academy menu."
+            "🚀 Use /start to open the Nisir Forex Academy menu."
         )
 
 
