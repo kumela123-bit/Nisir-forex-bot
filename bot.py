@@ -666,14 +666,14 @@ def generate_vip_signal(direction: str, pair: str, entry: Decimal) -> str:
         for index in range(1, 6)
     ]
     levels = "\n".join(
-        f"🎯 TP{index}: {format_signal_price(level, pair)}"
+        f"🎯 TP{index}: {format_signal_price(level, pair)} ({index * 30} PIPS)"
         for index, level in enumerate(take_profits, start=1)
     )
     return (
         "⚠️ RISKY TRADE ☠️\n\n"
         f"👉🏾 {direction} {pair} NOW\n\n"
         f"📍 ENTRY: {format_signal_price(entry, pair)}\n\n"
-        f"🛑 SL: {format_signal_price(stop_loss, pair)}\n\n"
+        f"🛑 SL: {format_signal_price(stop_loss, pair)} (40 PIPS)\n\n"
         f"{levels}\n\n"
         "🔓 TP OPEN\n\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
