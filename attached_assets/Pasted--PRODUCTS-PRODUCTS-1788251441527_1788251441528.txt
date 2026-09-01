@@ -1,0 +1,113 @@
+# =====================================
+# PRODUCTS
+# =====================================
+
+PRODUCTS = {
+    "basic_smc": {
+        "name": "Basic Smart Money Concept",
+        "price": "$39",
+    },
+    "advanced_smc": {
+        "name": "Advanced SMC Mastery",
+        "price": "$59",
+    },
+    "vip": {
+        "name": "VIP Signal",
+        "price": "$20",
+    },
+    "mentorship": {
+        "name": "Private 1-to-1 Mentorship",
+        "price": "$99",
+    },
+}
+
+
+# =====================================
+# VIP SIGNAL BUTTON
+# =====================================
+
+if action == "vip_signal":
+
+    vip_product = PRODUCTS.get("vip")
+
+    if not vip_product:
+        await query.answer(
+            "⚠️ Product unavailable.",
+            show_alert=True,
+        )
+        return
+
+    vip_price = vip_product["price"]
+
+    text = (
+        "🔐 VIP Signal\n\n"
+        "For Serious Traders Who Want Real Results\n\n"
+        "✅ High-Probability Signals\n"
+        "✅ Smart Money Technique Based\n"
+        "✅ Daily Trade Alerts\n"
+        "✅ Risk & Money Management Included\n\n"
+        f"💰 Price: {vip_price}"
+    )
+
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "💳 BUY NOW",
+                        callback_data="buy_vip",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Back",
+                        callback_data="main_menu",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🏠 Main Menu",
+                        callback_data="main_menu",
+                    )
+                ],
+            ]
+        ),
+    )
+    return
+
+
+# =====================================
+# BUY PRODUCT
+# =====================================
+
+if action.startswith("buy_"):
+
+    product_id = action.replace("buy_", "", 1)
+
+    product = PRODUCTS.get(product_id)
+
+    if product is None:
+        await query.answer(
+            "⚠️ Product unavailable.",
+            show_alert=True,
+        )
+        return
+
+    user_states[user_id] = {
+        "product_id": product_id,
+        "product_name": product["name"],
+        "amount": product["price"],
+    }
+
+    await query.edit_message_text(
+        "💳 Payment\n\n"
+        f"Package: {product['name']}\n"
+        f"Amount: {product['price']}\n\n"
+        "Choose payment method.",
+        reply_markup=payment_menu(),
+    )
+    return
+
+if __name__ == "__main__":
+    main()

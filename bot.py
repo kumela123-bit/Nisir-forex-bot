@@ -323,11 +323,11 @@ def product_description(product_id: str) -> tuple[str, str]:
         )
     return (
         "🔐 VIP Signal\n\n"
-        "📈 For serious traders who want structured guidance\n\n"
-        "✅ High-probability signals\n"
-        "✅ Smart Money Concept-based analysis\n"
-        "✅ Daily trade alerts\n"
-        "✅ Risk and money management included",
+        "📈 For Serious Traders Who Want Real Results\n\n"
+        "✅ High-Probability Signals\n"
+        "✅ Smart Money Technique Based\n"
+        "✅ Daily Trade Alerts\n"
+        "✅ Risk & Money Management Included",
         "main_menu",
     )
 
