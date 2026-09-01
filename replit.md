@@ -32,8 +32,9 @@ A Python Telegram sales bot for academy courses, manual receipt review, and VIP 
 
 - Uses async handlers and long polling from `python-telegram-bot`.
 - Reads all operational and payout configuration from Replit Secrets rather than source code.
-- Uses SQLite for payment, user, admin, VIP access, and saved-signal records so dashboard data survives process restarts.
+- Uses SQLite for payment, user, admin, course catalog, VIP access, and saved-signal records so dashboard data survives process restarts.
 - Restricts dashboard and payment approval actions to the owner or configured admins.
+- Restricts course catalog management to the configured owner admin.
 - Requires explicit confirmation before sending an admin broadcast.
 
 ## Product
@@ -42,7 +43,9 @@ The bot presents academy products, guides users through bank-transfer payment,
 collects receipt photos, forwards them to an administrator, and issues a
 one-time VIP channel invite after approval. The admin dashboard provides
 visibility into users, payments, receipts, access, products, broadcasts,
-statistics, and settings.
+statistics, and settings. Courses are persisted in SQLite; the owner can add
+courses through a four-step flow, edit fields, and delete added courses with
+confirmation. Existing academy courses are seeded and protected from deletion.
 
 ## User preferences
 

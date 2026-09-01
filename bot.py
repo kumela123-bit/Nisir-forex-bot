@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -78,12 +79,58 @@ class Product:
     price: str
 
 
+@dataclass(frozen=True)
+class Course:
+    """A course stored in the persistent academy catalog."""
+
+    course_id: str
+    name: str
+    description: str
+    price: str
+    content: str
+    is_builtin: bool = False
+
+
 PRODUCTS: dict[str, Product] = {
     "basic_smc": Product("Basic Smart Money Concept", "$39"),
     "advanced_smc": Product("Advanced SMC Mastery", "$59"),
     "vip": Product("VIP Signal", "$20"),
     "mentorship": Product("Private 1-to-1 Mentorship", "$99"),
 }
+
+
+BUILTIN_COURSES: tuple[Course, ...] = (
+    Course(
+        course_id="basic_smc",
+        name="Basic Smart Money Concept",
+        description="🌱 For beginners",
+        price="$39",
+        content=(
+            "✅ Market structure\n"
+            "✅ Liquidity concepts\n"
+            "✅ Entry and exit basics\n"
+            "✅ Risk management\n\n"
+            "❌ Not included: personalized trading plan, lifetime support, "
+            "or account-flip coaching."
+        ),
+        is_builtin=True,
+    ),
+    Course(
+        course_id="advanced_smc",
+        name="Advanced SMC Mastery",
+        description="🔥 For serious traders",
+        price="$59",
+        content=(
+            "✅ Institutional direction analysis\n"
+            "✅ Liquidity behavior\n"
+            "✅ Advanced trade management\n"
+            "✅ Psychology and discipline\n\n"
+            "❌ Not included: personalized trading plan, lifetime support, "
+            "or account-flip coaching."
+        ),
+        is_builtin=True,
+    ),
+)
 
 
 class PaymentStore:
@@ -158,6 +205,41 @@ class PaymentStore:
                 )
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS courses (
+                    course_id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    price TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    is_builtin INTEGER NOT NULL DEFAULT 0,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            for course in BUILTIN_COURSES:
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO courses (
+                        course_id, name, description, price, content,
+                        is_builtin, active, created_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+                    """,
+                    (
+                        course.course_id,
+                        course.name,
+                        course.description,
+                        course.price,
+                        course.content,
+                        int(course.is_builtin),
+                        utc_now(),
+                        utc_now(),
+                    ),
+                )
 
     def upsert_user(self, user_id: int, first_name: str, username: str | None) -> None:
         now = utc_now()
@@ -288,7 +370,9 @@ class PaymentStore:
             rows = connection.execute(
                 """
                 SELECT user_id FROM payments
-                WHERE product_id IN ('basic_smc', 'advanced_smc')
+                WHERE product_id IN (
+                    SELECT course_id FROM courses WHERE active = 1
+                )
                   AND status = 'approved'
                 ORDER BY updated_at DESC
                 """
@@ -358,6 +442,115 @@ class PaymentStore:
                 (limit,),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def list_courses(self) -> list[Course]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT course_id, name, description, price, content, is_builtin
+                FROM courses
+                WHERE active = 1
+                ORDER BY is_builtin DESC, created_at ASC
+                """
+            ).fetchall()
+        return [
+            Course(
+                course_id=str(row["course_id"]),
+                name=str(row["name"]),
+                description=str(row["description"]),
+                price=str(row["price"]),
+                content=str(row["content"]),
+                is_builtin=bool(row["is_builtin"]),
+            )
+            for row in rows
+        ]
+
+    def get_course(self, course_id: str) -> Course | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT course_id, name, description, price, content, is_builtin
+                FROM courses
+                WHERE course_id = ? AND active = 1
+                """,
+                (course_id,),
+            ).fetchone()
+        if not row:
+            return None
+        return Course(
+            course_id=str(row["course_id"]),
+            name=str(row["name"]),
+            description=str(row["description"]),
+            price=str(row["price"]),
+            content=str(row["content"]),
+            is_builtin=bool(row["is_builtin"]),
+        )
+
+    def create_course(
+        self,
+        name: str,
+        description: str,
+        price: str,
+        content: str,
+    ) -> Course:
+        base_id = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "course"
+        course_id = base_id
+        suffix = 2
+        while self.get_course(course_id) or course_id in PRODUCTS:
+            course_id = f"{base_id}_{suffix}"
+            suffix += 1
+        now = utc_now()
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO courses (
+                    course_id, name, description, price, content,
+                    is_builtin, active, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, 0, 1, ?, ?)
+                """,
+                (course_id, name, description, price, content, now, now),
+            )
+        return Course(course_id, name, description, price, content, False)
+
+    def update_course(self, course_id: str, **values: str) -> Course | None:
+        allowed = {"name", "description", "price", "content"}
+        updates = {key: value for key, value in values.items() if key in allowed}
+        if not updates:
+            return self.get_course(course_id)
+        updates["updated_at"] = utc_now()
+        assignments = ", ".join(f"{key} = ?" for key in updates)
+        with self._connect() as connection:
+            connection.execute(
+                f"UPDATE courses SET {assignments} WHERE course_id = ? AND active = 1",
+                [*updates.values(), course_id],
+            )
+        return self.get_course(course_id)
+
+    def delete_course(self, course_id: str) -> tuple[bool, str]:
+        course = self.get_course(course_id)
+        if not course:
+            return False, "Course not found."
+        if course.is_builtin:
+            return False, "The original academy courses are protected."
+        with self._connect() as connection:
+            connection.execute(
+                "DELETE FROM courses WHERE course_id = ? AND active = 1",
+                (course_id,),
+            )
+        return True, "Course deleted permanently."
+
+    def course_students(self, course_id: str) -> list[int]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT user_id FROM payments
+                WHERE product_id = ? AND status = 'approved'
+                ORDER BY updated_at DESC
+                """,
+                (course_id,),
+            ).fetchall()
+        return [int(row["user_id"]) for row in rows]
 
     def upsert_pending(self, user_id: int, product_id: str, product: Product) -> None:
         now = utc_now()
@@ -462,24 +655,19 @@ def main_menu_button() -> InlineKeyboardMarkup:
     )
 
 
-def courses_menu() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
+def courses_menu(store: PaymentStore | None = None) -> InlineKeyboardMarkup:
+    courses = store.list_courses() if store else list(BUILTIN_COURSES)
+    keyboard = [
         [
-            [
-                InlineKeyboardButton(
-                    "📘 Basic Smart Money Concept — $39",
-                    callback_data="basic_smc",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "🎓 Advanced SMC Mastery — $59",
-                    callback_data="advanced_smc",
-                )
-            ],
-            [InlineKeyboardButton("⬅️ Back", callback_data="main_menu")],
+            InlineKeyboardButton(
+                f"📚 {course.name} — {course.price}",
+                callback_data=course.course_id,
+            )
         ]
-    )
+        for course in courses
+    ]
+    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="main_menu")])
+    return InlineKeyboardMarkup(keyboard)
 
 
 def buy_now_menu(product_id: str, back_to: str) -> InlineKeyboardMarkup:
@@ -830,6 +1018,16 @@ async def ensure_admin(
     return True
 
 
+async def ensure_course_admin(query: Any, settings: Settings) -> bool:
+    if query.from_user.id != settings.admin_telegram_id:
+        await query.answer(
+            "⛔ Only the configured owner admin can manage courses.",
+            show_alert=True,
+        )
+        return False
+    return True
+
+
 def payment_status_label(status: str) -> str:
     return status.replace("_", " ").title()
 
@@ -1158,7 +1356,7 @@ async def view_receipt(
 async def show_admin_courses(
     query: Any, settings: Settings, store: PaymentStore
 ) -> None:
-    if not await ensure_admin(query, settings, store):
+    if not await ensure_course_admin(query, settings):
         return
     await query.edit_message_text(
         "📚 Courses Management\n\n👇 Manage the academy catalog below.",
@@ -1169,14 +1367,31 @@ async def show_admin_courses(
 async def show_courses_admin_view(
     query: Any, settings: Settings, store: PaymentStore
 ) -> None:
-    if not await ensure_admin(query, settings, store):
+    if not await ensure_course_admin(query, settings):
+        return
+    courses = store.list_courses()
+    if not courses:
+        await query.edit_message_text(
+            "📚 Available Courses\n\n📭 No active courses found.",
+            reply_markup=admin_courses_menu(),
+        )
         return
     lines = ["📚 Available Courses\n"]
-    for product_id in ("basic_smc", "advanced_smc"):
-        product = PRODUCTS[product_id]
-        lines.append(f"📦 {product.name}\n💰 Price: {product.price}\n")
+    for course in courses:
+        kind = "🔒 Original course" if course.is_builtin else "🆕 Added course"
+        lines.append(
+            f"{kind}\n"
+            f"📦 {course.name}\n"
+            f"🆔 {course.course_id}\n"
+            f"📝 {course.description}\n"
+            f"💰 Price: {course.price}\n"
+            f"📖 Content:\n{course.content}\n"
+        )
+    text = "\n".join(lines)
+    if len(text) > 3900:
+        text = text[:3890] + "\n\n…"
     await query.edit_message_text(
-        "\n".join(lines) + "🛠️ Use the catalog actions below.",
+        text,
         reply_markup=admin_courses_menu(),
     )
 
@@ -1184,14 +1399,195 @@ async def show_courses_admin_view(
 async def show_course_students(
     query: Any, settings: Settings, store: PaymentStore
 ) -> None:
-    if not await ensure_admin(query, settings, store):
+    if not await ensure_course_admin(query, settings):
         return
-    students = store.course_user_ids()
+    courses = store.list_courses()
+    if not courses:
+        await query.edit_message_text(
+            "👨‍🎓 Course Students\n\n📭 No active courses found.",
+            reply_markup=admin_courses_menu(),
+        )
+        return
+    lines = ["👨‍🎓 Course Students\n"]
+    for course in courses:
+        students = store.course_students(course.course_id)
+        lines.append(f"📚 {course.name}\n👥 Students: {len(students)}")
+        if students:
+            for user_id in students[:20]:
+                user = store.get_user(user_id)
+                name = user.get("first_name", "Unknown") if user else "Unknown"
+                username = (
+                    f" (@{user['username']})"
+                    if user and user.get("username")
+                    else ""
+                )
+                lines.append(f"• {name}{username} — {user_id}")
+            if len(students) > 20:
+                lines.append(f"• … and {len(students) - 20} more")
+        else:
+            lines.append("• No approved purchases yet.")
+        lines.append("")
+    text = "\n".join(lines)
+    if len(text) > 3900:
+        text = text[:3890] + "\n\n…"
     await query.edit_message_text(
-        "👨‍🎓 Course Students\n\n"
-        f"👥 Total Course Students: {len(students)}\n\n"
-        "Approved course purchases are counted automatically.",
+        text,
         reply_markup=admin_courses_menu(),
+    )
+
+
+def course_selection_menu(
+    courses: list[Course], action: str
+) -> InlineKeyboardMarkup:
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                f"📚 {course.name}",
+                callback_data=f"course_{action}_select:{course.course_id}",
+            )
+        ]
+        for course in courses
+    ]
+    keyboard.append(
+        [InlineKeyboardButton("⬅️ Courses", callback_data="admin_courses")]
+    )
+    return InlineKeyboardMarkup(keyboard)
+
+
+def course_edit_menu(course: Course) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "✏️ Name",
+                    callback_data=f"course_edit_field:{course.course_id}:name",
+                ),
+                InlineKeyboardButton(
+                    "📝 Description",
+                    callback_data=f"course_edit_field:{course.course_id}:description",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "💰 Price",
+                    callback_data=f"course_edit_field:{course.course_id}:price",
+                ),
+                InlineKeyboardButton(
+                    "📖 Content",
+                    callback_data=f"course_edit_field:{course.course_id}:content",
+                ),
+            ],
+            [InlineKeyboardButton("⬅️ Courses", callback_data="admin_courses")],
+        ]
+    )
+
+
+def course_delete_confirmation_menu(course_id: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "✅ Delete Permanently",
+                    callback_data=f"course_delete_confirm:{course_id}",
+                ),
+                InlineKeyboardButton(
+                    "❌ Cancel",
+                    callback_data="course_delete_cancel",
+                ),
+            ]
+        ]
+    )
+
+
+def course_add_confirmation_menu() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "✅ Save Course",
+                    callback_data="course_add_confirm",
+                ),
+                InlineKeyboardButton(
+                    "❌ Cancel",
+                    callback_data="course_add_cancel",
+                ),
+            ]
+        ]
+    )
+
+
+async def show_course_selection(
+    query: Any,
+    settings: Settings,
+    store: PaymentStore,
+    action: str,
+) -> None:
+    if not await ensure_course_admin(query, settings):
+        return
+    courses = store.list_courses()
+    if not courses:
+        await query.edit_message_text(
+            "📚 No active courses found.",
+            reply_markup=admin_courses_menu(),
+        )
+        return
+    label = "Edit" if action == "edit" else "Delete"
+    await query.edit_message_text(
+        f"{'✏️' if action == 'edit' else '🗑'} {label} Course\n\n"
+        "👇 Select a course:",
+        reply_markup=course_selection_menu(courses, action),
+    )
+
+
+async def show_course_edit_form(
+    query: Any,
+    settings: Settings,
+    store: PaymentStore,
+    course_id: str,
+) -> None:
+    if not await ensure_course_admin(query, settings):
+        return
+    course = store.get_course(course_id)
+    if not course:
+        await query.answer("⚠️ Course not found.", show_alert=True)
+        return
+    await query.edit_message_text(
+        "✏️ Edit Course\n\n"
+        f"📚 {course.name}\n"
+        f"📝 {course.description}\n"
+        f"💰 {course.price}\n"
+        f"📖 {course.content}\n\n"
+        "👇 Choose the field to edit:",
+        reply_markup=course_edit_menu(course),
+    )
+
+
+async def show_course_delete_confirmation(
+    query: Any,
+    settings: Settings,
+    store: PaymentStore,
+    course_id: str,
+) -> None:
+    if not await ensure_course_admin(query, settings):
+        return
+    course = store.get_course(course_id)
+    if not course:
+        await query.answer("⚠️ Course not found.", show_alert=True)
+        return
+    if course.is_builtin:
+        await query.edit_message_text(
+            "🔒 This original academy course is protected and cannot be deleted.\n\n"
+            "You can still manage the added courses.",
+            reply_markup=admin_courses_menu(),
+        )
+        return
+    await query.edit_message_text(
+        "🗑 Delete Course\n\n"
+        f"📚 {course.name}\n"
+        f"💰 {course.price}\n\n"
+        "⚠️ This permanently removes the course from the catalog. "
+        "Existing payment history will remain.",
+        reply_markup=course_delete_confirmation_menu(course_id),
     )
 
 
@@ -1425,10 +1821,13 @@ async def show_course_settings(
 ) -> None:
     if not await ensure_admin(query, settings, store):
         return
+    courses = store.list_courses()
+    course_lines = "\n\n".join(
+        f"📚 {course.name}: {course.price}" for course in courses
+    )
     await query.edit_message_text(
         "📚 Course Settings\n\n"
-        f"📘 Basic SMC: {PRODUCTS['basic_smc'].price}\n\n"
-        f"🎓 Advanced SMC: {PRODUCTS['advanced_smc'].price}\n\n"
+        f"{course_lines or '📭 No active courses.'}\n\n"
         f"🤝 Mentorship: {PRODUCTS['mentorship'].price}",
         reply_markup=admin_settings_menu(),
     )
@@ -1460,20 +1859,87 @@ async def show_admin_settings_info(
     )
 
 
-async def show_catalog_action(
-    query: Any, settings: Settings, store: PaymentStore, action: str
+def normalize_course_price(value: str) -> str | None:
+    cleaned = " ".join(value.strip().split())
+    match = re.fullmatch(
+        r"(?:([$€£])\s*|(ETB)\s*)?(\d+(?:\.\d{1,2})?)",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None
+    currency = match.group(1) or match.group(2)
+    amount = match.group(3)
+    if currency and currency.upper() == "ETB":
+        return f"ETB {amount}"
+    return f"{currency or '$'}{amount}"
+
+
+async def start_course_add(
+    query: Any,
+    context: ContextTypes.DEFAULT_TYPE,
+    settings: Settings,
+    store: PaymentStore,
 ) -> None:
-    if not await ensure_admin(query, settings, store):
+    if not await ensure_course_admin(query, settings):
         return
-    labels = {
-        "courses_add": "➕ Add Course",
-        "courses_edit": "✏️ Edit Course",
-        "courses_delete": "🗑️ Delete Course",
+    context.user_data["admin_action"] = {
+        "type": "course_add",
+        "step": "name",
+        "data": {},
     }
     await query.edit_message_text(
-        f"{labels[action]}\n\n"
-        "📚 The current catalog is defined in PRODUCTS and is ready for use.\n"
-        "To change prices or course content, update the catalog configuration.",
+        "➕ Add Course — Step 1 of 4\n\n📚 Send the course name.",
+        reply_markup=admin_courses_menu(),
+    )
+
+
+async def confirm_course_add(
+    query: Any,
+    context: ContextTypes.DEFAULT_TYPE,
+    settings: Settings,
+    store: PaymentStore,
+) -> None:
+    if not await ensure_course_admin(query, settings):
+        return
+    pending = context.user_data.get("admin_action") or {}
+    if pending.get("type") != "course_add_confirmation":
+        await query.answer("⚠️ Course draft not found.", show_alert=True)
+        return
+    data = pending.get("data") or {}
+    required_fields = ("name", "description", "price", "content")
+    if any(not str(data.get(field, "")).strip() for field in required_fields):
+        await query.answer("⚠️ Course information is incomplete.", show_alert=True)
+        return
+    course = store.create_course(
+        name=data["name"],
+        description=data["description"],
+        price=data["price"],
+        content=data["content"],
+    )
+    context.user_data.pop("admin_action", None)
+    await query.edit_message_text(
+        "✅ Course saved permanently.\n\n"
+        f"📚 {course.name}\n"
+        f"📝 {course.description}\n"
+        f"💰 {course.price}\n"
+        f"📖 {course.content}\n\n"
+        "The course is now available in the user-facing 📚 Courses menu.",
+        reply_markup=admin_courses_menu(),
+    )
+
+
+async def confirm_course_delete(
+    query: Any,
+    settings: Settings,
+    store: PaymentStore,
+    course_id: str,
+) -> None:
+    if not await ensure_course_admin(query, settings):
+        return
+    deleted, result = store.delete_course(course_id)
+    await query.edit_message_text(
+        f"{'✅' if deleted else '⚠️'} {result}",
         reply_markup=admin_courses_menu(),
     )
 
@@ -1578,7 +2044,7 @@ async def button_handler(
     if action == "courses":
         await query.edit_message_text(
             "📚 Courses\n\n👇 Choose your course below.",
-            reply_markup=courses_menu(),
+            reply_markup=courses_menu(store),
         )
         return
 
@@ -1599,6 +2065,17 @@ async def button_handler(
         )
         return
 
+    course = store.get_course(action)
+    if course:
+        await query.edit_message_text(
+            f"📚 {course.name}\n\n"
+            f"{course.description}\n\n"
+            f"📖 Course Content / Benefits:\n{course.content}\n\n"
+            f"💰 Price: {course.price}",
+            reply_markup=buy_now_menu(course.course_id, "courses"),
+        )
+        return
+
     if action in PRODUCTS:
         text, back_to = product_description(action)
         product = PRODUCTS[action]
@@ -1610,7 +2087,12 @@ async def button_handler(
 
     if action.startswith("buy_"):
         product_id = action[len("buy_") :]
-        product = PRODUCTS.get(product_id)
+        course = store.get_course(product_id)
+        product = (
+            Product(course.name, course.price)
+            if course
+            else PRODUCTS.get(product_id)
+        )
         if not product:
             await query.answer("⚠️ Product unavailable.", show_alert=True)
             return
@@ -1729,8 +2211,88 @@ async def button_handler(
     if action == "courses_students":
         await show_course_students(query, settings, store)
         return
-    if action in {"courses_add", "courses_edit", "courses_delete"}:
-        await show_catalog_action(query, settings, store, action)
+    if action == "courses_add":
+        await start_course_add(query, context, settings, store)
+        return
+    if action == "courses_edit":
+        await show_course_selection(query, settings, store, "edit")
+        return
+    if action == "courses_delete":
+        await show_course_selection(query, settings, store, "delete")
+        return
+    if action.startswith("course_edit_select:"):
+        await show_course_edit_form(
+            query,
+            settings,
+            store,
+            action.removeprefix("course_edit_select:"),
+        )
+        return
+    if action.startswith("course_delete_select:"):
+        await show_course_delete_confirmation(
+            query,
+            settings,
+            store,
+            action.removeprefix("course_delete_select:"),
+        )
+        return
+    if action.startswith("course_edit_field:"):
+        parts = action.split(":")
+        if len(parts) != 3 or parts[2] not in {
+            "name",
+            "description",
+            "price",
+            "content",
+        }:
+            await query.answer("⚠️ Invalid course field.", show_alert=True)
+            return
+        course_id, field = parts[1], parts[2]
+        if await ensure_course_admin(query, settings):
+            course = store.get_course(course_id)
+            if not course:
+                await query.answer("⚠️ Course not found.", show_alert=True)
+                return
+            context.user_data["admin_action"] = {
+                "type": "course_edit_value",
+                "course_id": course_id,
+                "field": field,
+            }
+            prompts = {
+                "name": "📚 Send the new course name.",
+                "description": "📝 Send the new course description.",
+                "price": "💰 Send the new course price, for example: $79 or ETB 2500.",
+                "content": "📖 Send the new course content / benefits.",
+            }
+            await query.edit_message_text(
+                f"✏️ Edit {field.title()}\n\n{prompts[field]}",
+                reply_markup=course_edit_menu(course),
+            )
+        return
+    if action == "course_add_confirm":
+        await confirm_course_add(query, context, settings, store)
+        return
+    if action == "course_add_cancel":
+        if await ensure_course_admin(query, settings):
+            context.user_data.pop("admin_action", None)
+            await query.edit_message_text(
+                "➕ Course creation cancelled.",
+                reply_markup=admin_courses_menu(),
+            )
+        return
+    if action.startswith("course_delete_confirm:"):
+        await confirm_course_delete(
+            query,
+            settings,
+            store,
+            action.removeprefix("course_delete_confirm:"),
+        )
+        return
+    if action == "course_delete_cancel":
+        if await ensure_course_admin(query, settings):
+            await query.edit_message_text(
+                "🗑 Course deletion cancelled.",
+                reply_markup=admin_courses_menu(),
+            )
         return
 
     if action == "admin_vip":
@@ -2105,14 +2667,125 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         return
 
-    if not store.is_admin(user.id):
+    action_type = pending_action.get("type")
+    if not store.is_admin(user.id) or (
+        isinstance(action_type, str)
+        and action_type.startswith("course_")
+        and user.id != settings.admin_telegram_id
+    ):
         context.user_data.pop("admin_action", None)
         context.user_data.pop("broadcast_draft", None)
         await message.reply_text("⛔ You are not authorized to use that action.")
         return
 
-    action_type = pending_action.get("type")
     text = message.text.strip()
+
+    if action_type == "course_add":
+        step = pending_action.get("step")
+        data = pending_action.setdefault("data", {})
+        if step == "name":
+            if not text or len(text) > 150:
+                await message.reply_text(
+                    "⚠️ Course name must be between 1 and 150 characters. Try again."
+                )
+                return
+            data["name"] = text
+            pending_action["step"] = "description"
+            await message.reply_text(
+                "➕ Add Course — Step 2 of 4\n\n"
+                "📝 Send the course description."
+            )
+            return
+        if step == "description":
+            if not text or len(text) > 4000:
+                await message.reply_text(
+                    "⚠️ Description must be between 1 and 4,000 characters. Try again."
+                )
+                return
+            data["description"] = text
+            pending_action["step"] = "price"
+            await message.reply_text(
+                "➕ Add Course — Step 3 of 4\n\n"
+                "💰 Send the course price, for example: $79 or ETB 2500."
+            )
+            return
+        if step == "price":
+            price = normalize_course_price(text)
+            if not price:
+                await message.reply_text(
+                    "⚠️ Enter a valid price such as $79, €79, £79, or ETB 2500."
+                )
+                return
+            data["price"] = price
+            pending_action["step"] = "content"
+            await message.reply_text(
+                "➕ Add Course — Step 4 of 4\n\n"
+                "📖 Send the course content / benefits."
+            )
+            return
+        if step == "content":
+            if not text or len(text) > 4000:
+                await message.reply_text(
+                    "⚠️ Content must be between 1 and 4,000 characters. Try again."
+                )
+                return
+            data["content"] = text
+            context.user_data["admin_action"] = {
+                "type": "course_add_confirmation",
+                "data": dict(data),
+            }
+            await message.reply_text(
+                "📋 Course Confirmation\n\n"
+                f"📚 Name: {data['name']}\n\n"
+                f"📝 Description: {data['description']}\n\n"
+                f"💰 Price: {data['price']}\n\n"
+                f"📖 Content / Benefits:\n{data['content']}\n\n"
+                "Save this course permanently?",
+                reply_markup=course_add_confirmation_menu(),
+            )
+            return
+        context.user_data.pop("admin_action", None)
+        await message.reply_text(
+            "⚠️ The course creation step was invalid. Please start again.",
+            reply_markup=admin_courses_menu(),
+        )
+        return
+
+    if action_type == "course_edit_value":
+        course_id = pending_action.get("course_id")
+        field = pending_action.get("field")
+        if not course_id or field not in {"name", "description", "price", "content"}:
+            context.user_data.pop("admin_action", None)
+            await message.reply_text(
+                "⚠️ The course edit session expired.",
+                reply_markup=admin_courses_menu(),
+            )
+            return
+        value = normalize_course_price(text) if field == "price" else text
+        max_length = 150 if field == "name" else 4000
+        if not value or len(value) > max_length:
+            prompt = (
+                "⚠️ Enter a valid price such as $79 or ETB 2500."
+                if field == "price"
+                else f"⚠️ This field must be between 1 and {max_length} characters. Try again."
+            )
+            await message.reply_text(prompt)
+            return
+        course = store.update_course(course_id, **{field: value})
+        context.user_data.pop("admin_action", None)
+        if not course:
+            await message.reply_text(
+                "⚠️ Course not found.",
+                reply_markup=admin_courses_menu(),
+            )
+            return
+        await message.reply_text(
+            f"✅ Course {field} updated and saved permanently.\n\n"
+            f"📚 {course.name}\n"
+            f"💰 {course.price}",
+            reply_markup=course_edit_menu(course),
+        )
+        return
 
     if action_type == "broadcast":
         target = pending_action.get("target")

@@ -22,7 +22,7 @@ The configured admin can open **⚙️ Admin Dashboard** from `/start` to view:
 - 👥 Users and VIP members
 - 💳 Pending payments and payment history
 - 📸 Pending and historical receipts
-- 📚 Course catalog and students
+- 📚 Persistent course catalog, course editing, and course students
 - 🔐 VIP members, saved signals, and access controls
 - 🤝 Mentorship users and requests
 - 🔑 Course/VIP access status
@@ -34,6 +34,12 @@ The configured admin can open **⚙️ Admin Dashboard** from `/start` to view:
 Admin actions are restricted to the owner admin or admins added through the
 dashboard. VIP revocations override previous approved VIP purchases until access
 is explicitly granted again or the user completes a new approved purchase.
+
+Course management is owner-only: the configured `NISIR_ADMIN_TELEGRAM_ID`
+can add courses through a four-step form, edit any course field, and delete
+added courses after confirmation. The two original academy courses are seeded
+into SQLite and protected from deletion. Added courses appear automatically in
+the user-facing Courses menu and use the same receipt/payment workflow.
 
 ## Run the bot
 
