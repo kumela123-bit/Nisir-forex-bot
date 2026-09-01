@@ -1,19 +1,33 @@
-# Telegram Bot
+# Nisir Forex Academy Telegram Bot
 
-A starter Telegram bot built with Python and
+A Telegram sales and payment-verification bot built with Python and
 [`python-telegram-bot`](https://python-telegram-bot.org/).
 
-## Included commands
+## User flow
 
-- `/start` — welcome message
-- `/help` — list available commands
-- `/echo <text>` — repeat text
-- `/about` — describe the bot
-- Regular text messages are repeated automatically
+1. `/start` opens the academy menu.
+2. A user selects a course, VIP Signal, or private mentorship.
+3. The bot shows the configured payment instructions.
+4. The user confirms payment and uploads a receipt photo.
+5. The receipt is forwarded to the admin with **Approve** and **Reject** buttons.
+6. Approved VIP purchases receive a one-time invite link to the configured channel.
+
+Payment records are stored in `payments.db`, so pending reviews survive a bot
+restart. The database path can be changed with `PAYMENTS_DB_PATH`.
 
 ## Run the bot
 
-The bot token is already configured as the `TELEGRAM_BOT_TOKEN` Replit Secret.
+Required values are stored as Replit Secrets:
+
+- `TELEGRAM_BOT_TOKEN`
+- `NISIR_ADMIN_TELEGRAM_ID`
+- `NISIR_VIP_CHANNEL_ID`
+- `NISIR_CBE_ACCOUNT_NAME`
+- `NISIR_CBE_ACCOUNT_NUMBER`
+- `NISIR_ABYSSINIA_ACCOUNT_NUMBER`
+- `NISIR_TELEBIRR_NUMBER`
+
+Run directly:
 
 ```bash
 uv run python bot.py
@@ -21,18 +35,11 @@ uv run python bot.py
 
 The configured **Telegram Bot** workflow runs the same command continuously.
 
-## Add your own commands
+## Telegram permissions
 
-Add an async handler to `bot.py`, then register it in `build_application()`:
+For VIP invite links to work, add the bot to the VIP channel as an
+administrator with permission to invite users. The admin must also start a chat
+with the bot before the bot can send payment notifications.
 
-```python
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    del context
-    await update.message.reply_text("Everything is running.")
-
-
-application.add_handler(CommandHandler("status", status))
-```
-
-Keep secrets in Replit Secrets. Do not commit bot tokens or place them directly
-in source code.
+Keep all secrets in Replit Secrets. Do not commit bot tokens, admin identifiers,
+channel identifiers, or payout details to source control.

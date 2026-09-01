@@ -1,6 +1,6 @@
-# Telegram Bot
+# Nisir Forex Academy Telegram Bot
 
-A Python Telegram bot that responds to commands and repeats regular text messages.
+A Python Telegram sales bot for academy courses, manual receipt review, and VIP channel access.
 
 ## Run & Operate
 
@@ -31,12 +31,15 @@ A Python Telegram bot that responds to commands and repeats regular text message
 ## Architecture decisions
 
 - Uses async handlers and long polling from `python-telegram-bot`.
-- Reads the Telegram token from Replit Secrets rather than source code.
-- Keeps the initial command surface intentionally small so application-specific behavior can be added in `bot.py`.
+- Reads all operational and payout configuration from Replit Secrets rather than source code.
+- Uses SQLite for payment records so pending reviews survive process restarts.
+- Restricts admin approval actions to the configured admin Telegram ID.
 
 ## Product
 
-The bot welcomes users, explains its commands, echoes requested text, and responds to ordinary text messages.
+The bot presents academy products, guides users through bank-transfer payment,
+collects receipt photos, forwards them to an administrator, and issues a
+one-time VIP channel invite after approval.
 
 ## User preferences
 
@@ -44,8 +47,10 @@ No additional preferences specified.
 
 ## Gotchas
 
-- The bot cannot start without `TELEGRAM_BOT_TOKEN`.
+- The bot cannot start without all required Replit Secrets.
 - Only one polling process should use a bot token at a time.
+- The bot must be an administrator of the VIP channel to create invite links.
+- Payment data is local to the SQLite file and is not shared across deployments.
 
 ## Pointers
 
