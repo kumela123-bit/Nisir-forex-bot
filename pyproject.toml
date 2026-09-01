@@ -1,0 +1,11 @@
+[project]
+name = "repl-nix-workspace"
+version = "0.1.0"
+description = "A Telegram bot built with python-telegram-bot"
+requires-python = ">=3.11"
+dependencies = [
+    "python-telegram-bot>=22.8",
+]
+
+[project.scripts]
+telegram-bot = "bot:main"

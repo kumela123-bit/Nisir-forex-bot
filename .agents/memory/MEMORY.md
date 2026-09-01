@@ -1,0 +1,1 @@
+- [Telegram bot logging](telegram-bot-logging.md) — suppress HTTP client request logs because Telegram API URLs contain the bot token.
