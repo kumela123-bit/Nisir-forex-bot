@@ -49,10 +49,16 @@ From **🔐 VIP Signals → 📢 Create VIP Signal**, the admin selects:
 2. One supported pair: `XAUUSD`, `EURUSD`, `GBPUSD`, `USDJPY`, or `BTCUSD`
 3. The Entry price
 
-The bot generates and saves the formatted signal automatically. The stop loss
-is 40 pips from Entry, and each Take Profit is spaced exactly 30 pips from the
-previous level. Generated signals remain available through **📝 Manage VIP
-Content**.
+The bot generates and saves the formatted signal automatically, then posts the
+exact same message to the configured VIP Telegram Channel. The stop loss is 40
+pips from Entry, and each Take Profit is spaced exactly 30 pips from the
+previous level. The success message is shown only after Telegram accepts the
+post. Generated signals remain available through **📝 Manage VIP Content**.
+
+At startup, the bot verifies that the configured channel is reachable and that
+the bot is an administrator with permission to post messages. If delivery
+fails, the signal remains saved for review, but the admin is told explicitly
+that it was not posted.
 
 ## Run the bot
 

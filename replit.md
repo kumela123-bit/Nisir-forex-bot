@@ -48,7 +48,10 @@ statistics, and settings. Courses are persisted in SQLite; the owner can add
 courses through a four-step flow, edit fields, and delete added courses with
 confirmation. Existing academy courses are seeded and protected from deletion.
 VIP signals are generated automatically for the supported XAUUSD, EURUSD,
-GBPUSD, USDJPY, and BTCUSD pairs, then saved in SQLite for VIP content review.
+GBPUSD, USDJPY, and BTCUSD pairs, saved in SQLite, and posted to the configured
+VIP channel only after Telegram accepts the message. Startup verifies that the
+channel is reachable and that the bot has administrator/post-message
+permissions. A failed post is reported to the admin without claiming success.
 
 ## User preferences
 

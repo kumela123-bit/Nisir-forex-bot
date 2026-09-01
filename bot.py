@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.error import TelegramError
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -2789,6 +2790,41 @@ async def photo_handler(
         LOGGER.exception("Failed to send payment receipt to admin.")
 
 
+async def verify_vip_channel(application: Application) -> None:
+    """Verify the configured VIP channel and the bot's ability to post there."""
+    settings: Settings = application.bot_data["settings"]
+    try:
+        bot_user = await application.bot.get_me()
+        channel = await application.bot.get_chat(settings.vip_channel_id)
+        membership = await application.bot.get_chat_member(
+            chat_id=settings.vip_channel_id,
+            user_id=bot_user.id,
+        )
+    except TelegramError:
+        LOGGER.exception(
+            "VIP channel verification failed. Check NISIR_VIP_CHANNEL_ID "
+            "and the bot's membership in the VIP channel."
+        )
+        return
+
+    status = membership.status
+    can_post = getattr(membership, "can_post_messages", None)
+    if status not in {"administrator", "creator"} or (
+        status == "administrator" and can_post is False
+    ):
+        LOGGER.error(
+            "VIP channel verification failed: the bot is not an administrator "
+            "with permission to post messages."
+        )
+        return
+
+    LOGGER.info(
+        "VIP channel verified: configured channel is reachable and the bot "
+        "can post messages (type=%s).",
+        channel.type,
+    )
+
+
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     settings: Settings = context.application.bot_data["settings"]
     store: PaymentStore = context.application.bot_data["payment_store"]
@@ -2981,8 +3017,23 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         signal = generate_vip_signal(direction, pair, entry)
         store.save_signal(signal)
         context.user_data.pop("admin_action", None)
+        try:
+            await context.bot.send_message(
+                chat_id=settings.vip_channel_id,
+                text=signal,
+            )
+        except Exception:
+            LOGGER.exception("Failed to post generated VIP signal to the VIP channel.")
+            await message.reply_text(
+                "⚠️ VIP signal was saved, but posting to the VIP Channel failed.\n\n"
+                "The signal was NOT posted. Confirm that the configured VIP "
+                "channel is correct and that the bot is an administrator with "
+                "permission to post messages.",
+                reply_markup=admin_vip_menu(),
+            )
+            return
         await message.reply_text(
-            "✅ VIP signal created and saved successfully.\n\n" + signal,
+            "✅ VIP signal created, saved, and posted successfully.\n\n" + signal,
             reply_markup=admin_vip_menu(),
         )
         return
@@ -3118,7 +3169,12 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 def build_application(settings: Settings | None = None) -> Application:
     """Create the application and register all handlers."""
     resolved_settings = settings or Settings.from_env()
-    application = Application.builder().token(resolved_settings.token).build()
+    application = (
+        Application.builder()
+        .token(resolved_settings.token)
+        .post_init(verify_vip_channel)
+        .build()
+    )
     application.bot_data["settings"] = resolved_settings
     application.bot_data["payment_store"] = PaymentStore(
         resolved_settings.database_path,
