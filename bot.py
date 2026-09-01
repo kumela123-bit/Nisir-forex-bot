@@ -12,6 +12,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any
 
@@ -97,6 +98,17 @@ PRODUCTS: dict[str, Product] = {
     "vip": Product("VIP Signal", "$20"),
     "mentorship": Product("Private 1-to-1 Mentorship", "$99"),
 }
+
+
+SIGNAL_PIP_SIZES: dict[str, Decimal] = {
+    "XAUUSD": Decimal("0.01"),
+    "EURUSD": Decimal("0.0001"),
+    "GBPUSD": Decimal("0.0001"),
+    "USDJPY": Decimal("0.01"),
+    "BTCUSD": Decimal("1"),
+}
+SIGNAL_PAIRS: tuple[str, ...] = tuple(SIGNAL_PIP_SIZES)
+SIGNAL_DIRECTIONS: tuple[str, ...] = ("BUY", "SELL")
 
 
 BUILTIN_COURSES: tuple[Course, ...] = (
@@ -619,6 +631,58 @@ def parse_price(price: str) -> int:
     return int(digits or 0)
 
 
+def signal_price_precision(pair: str) -> int:
+    pip_size = SIGNAL_PIP_SIZES[pair]
+    return max(0, -pip_size.as_tuple().exponent)
+
+
+def parse_signal_entry(value: str, pair: str) -> Decimal | None:
+    try:
+        entry = Decimal(value.strip().replace(",", ""))
+    except InvalidOperation:
+        return None
+    pip_size = SIGNAL_PIP_SIZES[pair]
+    if not entry.is_finite() or entry <= 0:
+        return None
+    if entry.quantize(pip_size) != entry:
+        return None
+    return entry
+
+
+def format_signal_price(value: Decimal, pair: str) -> str:
+    precision = signal_price_precision(pair)
+    quantum = SIGNAL_PIP_SIZES[pair]
+    return f"{value.quantize(quantum, rounding=ROUND_HALF_UP):.{precision}f}"
+
+
+def generate_vip_signal(direction: str, pair: str, entry: Decimal) -> str:
+    pip_size = SIGNAL_PIP_SIZES[pair]
+    direction = direction.upper()
+    multiplier = Decimal("1") if direction == "BUY" else Decimal("-1")
+    stop_loss = entry - (multiplier * Decimal("40") * pip_size)
+    take_profits = [
+        entry + (multiplier * Decimal(index * 30) * pip_size)
+        for index in range(1, 6)
+    ]
+    levels = "\n".join(
+        f"🎯 TP{index}: {format_signal_price(level, pair)}"
+        for index, level in enumerate(take_profits, start=1)
+    )
+    return (
+        "⚠️ RISKY TRADE ☠️\n\n"
+        f"👉🏾 {direction} {pair} NOW\n\n"
+        f"📍 ENTRY: {format_signal_price(entry, pair)}\n\n"
+        f"🛑 SL: {format_signal_price(stop_loss, pair)}\n\n"
+        f"{levels}\n\n"
+        "🔓 TP OPEN\n\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        "⚠️ DISCLAIMER\n\n"
+        "Past profits do not predict future earnings.\n"
+        "Risk only 3–5% per position.\n\n"
+        "No guaranteed profit or automatic reward."
+    )
+
+
 def main_menu(user_id: int, settings: Settings) -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton("📚 Courses", callback_data="courses")],
@@ -830,6 +894,39 @@ def admin_vip_menu() -> InlineKeyboardMarkup:
             [InlineKeyboardButton("📝 Manage VIP Content", callback_data="vip_content")],
             [InlineKeyboardButton("⬅️ Admin Dashboard", callback_data="admin_dashboard")],
         ]
+    )
+
+
+def signal_direction_menu() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "📈 BUY",
+                    callback_data="vip_signal_direction:BUY",
+                ),
+                InlineKeyboardButton(
+                    "📉 SELL",
+                    callback_data="vip_signal_direction:SELL",
+                ),
+            ],
+            [InlineKeyboardButton("⬅️ VIP Signals", callback_data="admin_vip")],
+        ]
+    )
+
+
+def signal_pair_menu(direction: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    pair,
+                    callback_data=f"vip_signal_pair:{direction}:{pair}",
+                )
+            ]
+            for pair in SIGNAL_PAIRS
+        ]
+        + [[InlineKeyboardButton("⬅️ Direction", callback_data="vip_create")]]
     )
 
 
@@ -2314,9 +2411,50 @@ async def button_handler(
         return
     if action == "vip_create":
         if await ensure_admin(query, settings, store):
-            context.user_data["admin_action"] = {"type": "vip_signal"}
             await query.edit_message_text(
-                "📢 Create VIP Signal\n\n✍️ Send the signal text as your next message.",
+                "📢 Create VIP Signal\n\n"
+                "👇 Select the signal direction.",
+                reply_markup=signal_direction_menu(),
+            )
+        return
+    if action.startswith("vip_signal_direction:"):
+        direction = action.removeprefix("vip_signal_direction:")
+        if direction not in SIGNAL_DIRECTIONS:
+            await query.answer("⚠️ Invalid signal direction.", show_alert=True)
+            return
+        if await ensure_admin(query, settings, store):
+            await query.edit_message_text(
+                f"📢 Create VIP Signal\n\n"
+                f"📈 Direction: {direction}\n\n"
+                "👇 Select the trading pair.",
+                reply_markup=signal_pair_menu(direction),
+            )
+        return
+    if action.startswith("vip_signal_pair:"):
+        parts = action.split(":")
+        if len(parts) != 3:
+            await query.answer("⚠️ Invalid signal pair.", show_alert=True)
+            return
+        direction, pair = parts[1], parts[2]
+        if direction not in SIGNAL_DIRECTIONS or pair not in SIGNAL_PAIRS:
+            await query.answer("⚠️ Unsupported signal selection.", show_alert=True)
+            return
+        if await ensure_admin(query, settings, store):
+            context.user_data["admin_action"] = {
+                "type": "vip_signal_entry",
+                "direction": direction,
+                "pair": pair,
+            }
+            precision = signal_price_precision(pair)
+            example = "2350.50" if pair == "XAUUSD" else (
+                "1.0850" if precision == 4 else "150.00" if pair == "USDJPY" else "65000"
+            )
+            await query.edit_message_text(
+                f"📢 Create VIP Signal\n\n"
+                f"📈 Direction: {direction}\n"
+                f"💱 Pair: {pair}\n\n"
+                f"📍 Send only the Entry price (example: {example}).\n"
+                "SL and TP levels will be calculated automatically.",
                 reply_markup=admin_vip_menu(),
             )
         return
@@ -2813,11 +2951,38 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         return
 
-    if action_type == "vip_signal":
-        store.save_signal(text)
+    if action_type == "vip_signal_entry":
+        direction = pending_action.get("direction")
+        pair = pending_action.get("pair")
+        if direction not in SIGNAL_DIRECTIONS or pair not in SIGNAL_PAIRS:
+            context.user_data.pop("admin_action", None)
+            await message.reply_text(
+                "⚠️ The VIP signal setup expired. Please start again.",
+                reply_markup=admin_vip_menu(),
+            )
+            return
+        entry = parse_signal_entry(text, pair)
+        if entry is None:
+            precision = signal_price_precision(pair)
+            example = (
+                "2350.50"
+                if pair == "XAUUSD"
+                else "1.0850"
+                if precision == 4
+                else "150.00"
+                if pair == "USDJPY"
+                else "65000"
+            )
+            await message.reply_text(
+                f"⚠️ Enter a valid {pair} price using {precision} decimal "
+                f"place{'s' if precision != 1 else ''}, for example: {example}."
+            )
+            return
+        signal = generate_vip_signal(direction, pair, entry)
+        store.save_signal(signal)
         context.user_data.pop("admin_action", None)
         await message.reply_text(
-            "✅ VIP signal saved successfully.",
+            "✅ VIP signal created and saved successfully.\n\n" + signal,
             reply_markup=admin_vip_menu(),
         )
         return

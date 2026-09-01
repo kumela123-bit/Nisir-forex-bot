@@ -41,6 +41,19 @@ added courses after confirmation. The two original academy courses are seeded
 into SQLite and protected from deletion. Added courses appear automatically in
 the user-facing Courses menu and use the same receipt/payment workflow.
 
+### Automatic VIP signal creation
+
+From **🔐 VIP Signals → 📢 Create VIP Signal**, the admin selects:
+
+1. 📈 BUY or 📉 SELL
+2. One supported pair: `XAUUSD`, `EURUSD`, `GBPUSD`, `USDJPY`, or `BTCUSD`
+3. The Entry price
+
+The bot generates and saves the formatted signal automatically. The stop loss
+is 40 pips from Entry, and each Take Profit is spaced exactly 30 pips from the
+previous level. Generated signals remain available through **📝 Manage VIP
+Content**.
+
 ## Run the bot
 
 Required values are stored as Replit Secrets:

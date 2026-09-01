@@ -36,6 +36,7 @@ A Python Telegram sales bot for academy courses, manual receipt review, and VIP 
 - Restricts dashboard and payment approval actions to the owner or configured admins.
 - Restricts course catalog management to the configured owner admin.
 - Requires explicit confirmation before sending an admin broadcast.
+- Generates VIP signals from a selected direction, supported pair, and entry price with fixed pip-based SL/TP rules.
 
 ## Product
 
@@ -46,6 +47,8 @@ visibility into users, payments, receipts, access, products, broadcasts,
 statistics, and settings. Courses are persisted in SQLite; the owner can add
 courses through a four-step flow, edit fields, and delete added courses with
 confirmation. Existing academy courses are seeded and protected from deletion.
+VIP signals are generated automatically for the supported XAUUSD, EURUSD,
+GBPUSD, USDJPY, and BTCUSD pairs, then saved in SQLite for VIP content review.
 
 ## User preferences
 
