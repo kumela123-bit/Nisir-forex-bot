@@ -110,6 +110,56 @@ SIGNAL_PIP_SIZES: dict[str, Decimal] = {
 }
 SIGNAL_PAIRS: tuple[str, ...] = tuple(SIGNAL_PIP_SIZES)
 SIGNAL_DIRECTIONS: tuple[str, ...] = ("BUY", "SELL")
+SIGNAL_STATUS_MESSAGES: dict[str, str] = {
+    "tp1": (
+        "🎯 TP1 HIT ✅\n\n"
+        "The first Take Profit target has been reached successfully.\n\n"
+        "⚖️ Consider moving Stop Loss to Break Even.\n\n"
+        "━━━━━━━━━━━━━━━━━━"
+    ),
+    "tp2": (
+        "🎯 TP2 HIT ✅\n\n"
+        "The second Take Profit target has been reached successfully.\n\n"
+        "━━━━━━━━━━━━━━━━━━"
+    ),
+    "tp3": (
+        "🎯 TP3 HIT ✅\n\n"
+        "The third Take Profit target has been reached successfully.\n\n"
+        "━━━━━━━━━━━━━━━━━━"
+    ),
+    "tp4": (
+        "🎯 TP4 HIT ✅\n\n"
+        "The fourth Take Profit target has been reached successfully.\n\n"
+        "━━━━━━━━━━━━━━━━━━"
+    ),
+    "tp5": (
+        "🏆 TP5 HIT 🎯✅\n\n"
+        "All Take Profit targets have been completed successfully.\n\n"
+        "━━━━━━━━━━━━━━━━━━"
+    ),
+    "break_even": (
+        "⚖️ BREAK EVEN\n\n"
+        "Move your Stop Loss to Entry Price.\n\n"
+        "The trade is now risk-free.\n\n"
+        "━━━━━━━━━━━━━━━━━━"
+    ),
+    "sl_hit": (
+        "🛑 STOP LOSS HIT ❌\n\n"
+        "This trade has been closed at Stop Loss.\n\n"
+        "Always follow proper risk management.\n\n"
+        "━━━━━━━━━━━━━━━━━━"
+    ),
+}
+SIGNAL_STATUS_LABELS: dict[str, str] = {
+    "tp1": "🎯 TP1 HIT",
+    "tp2": "🎯 TP2 HIT",
+    "tp3": "🎯 TP3 HIT",
+    "tp4": "🎯 TP4 HIT",
+    "tp5": "🎯 TP5 HIT",
+    "break_even": "⚖️ BREAK EVEN",
+    "sl_hit": "🛑 SL HIT",
+}
+SIGNAL_TERMINAL_STATUSES = frozenset({"tp5", "sl_hit"})
 
 
 BUILTIN_COURSES: tuple[Course, ...] = (
@@ -205,6 +255,20 @@ class PaymentStore:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     content TEXT NOT NULL,
                     created_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS signal_status_updates (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    signal_id INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    delivery_status TEXT NOT NULL DEFAULT 'pending',
+                    created_at TEXT NOT NULL,
+                    posted_at TEXT,
+                    FOREIGN KEY (signal_id) REFERENCES signals(id)
                 )
                 """
             )
@@ -453,6 +517,89 @@ class PaymentStore:
                 LIMIT ?
                 """,
                 (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_signal(self, signal_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM signals WHERE id = ?", (signal_id,)
+            ).fetchone()
+        return dict(row) if row else None
+
+    def list_active_signals(self, limit: int = 50) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT signals.*, latest.status AS latest_status
+                FROM signals
+                LEFT JOIN signal_status_updates AS latest
+                  ON latest.id = (
+                      SELECT candidate.id
+                      FROM signal_status_updates AS candidate
+                      WHERE candidate.signal_id = signals.id
+                        AND candidate.delivery_status = 'posted'
+                      ORDER BY candidate.id DESC
+                      LIMIT 1
+                  )
+                WHERE latest.status IS NULL
+                   OR latest.status NOT IN ('tp5', 'sl_hit')
+                ORDER BY signals.created_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def save_signal_status_update(
+        self, signal_id: int, status: str, content: str
+    ) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO signal_status_updates (
+                    signal_id, status, content, delivery_status, created_at
+                )
+                VALUES (?, ?, ?, 'pending', ?)
+                """,
+                (signal_id, status, content, utc_now()),
+            )
+        return int(cursor.lastrowid)
+
+    def mark_signal_status_posted(self, update_id: int) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE signal_status_updates
+                SET delivery_status = 'posted', posted_at = ?
+                WHERE id = ?
+                """,
+                (utc_now(), update_id),
+            )
+
+    def mark_signal_status_failed(self, update_id: int) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE signal_status_updates
+                SET delivery_status = 'failed'
+                WHERE id = ?
+                """,
+                (update_id,),
+            )
+
+    def list_signal_status_updates(
+        self, signal_id: int, limit: int = 50
+    ) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM signal_status_updates
+                WHERE signal_id = ?
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (signal_id, limit),
             ).fetchall()
         return [dict(row) for row in rows]
 
@@ -889,6 +1036,12 @@ def admin_vip_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("📢 Create VIP Signal", callback_data="vip_create")],
+            [
+                InlineKeyboardButton(
+                    "📊 Update Signal Status",
+                    callback_data="vip_status_select",
+                )
+            ],
             [InlineKeyboardButton("📋 VIP Members", callback_data="vip_members")],
             [InlineKeyboardButton("🔓 Grant VIP Access", callback_data="vip_grant")],
             [InlineKeyboardButton("🔒 Remove VIP Access", callback_data="vip_remove")],
@@ -928,6 +1081,74 @@ def signal_pair_menu(direction: str) -> InlineKeyboardMarkup:
             for pair in SIGNAL_PAIRS
         ]
         + [[InlineKeyboardButton("⬅️ Direction", callback_data="vip_create")]]
+    )
+
+
+def signal_status_selection_menu(
+    signals: list[dict[str, Any]],
+) -> InlineKeyboardMarkup:
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                f"📢 Signal #{signal['id']}"
+                f" — {SIGNAL_STATUS_LABELS.get(signal.get('latest_status'), 'ACTIVE')}",
+                callback_data=f"vip_status_signal:{signal['id']}",
+            )
+        ]
+        for signal in signals
+    ]
+    keyboard.append(
+        [InlineKeyboardButton("⬅️ VIP Signals", callback_data="admin_vip")]
+    )
+    return InlineKeyboardMarkup(keyboard)
+
+
+def signal_status_menu(signal_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    SIGNAL_STATUS_LABELS["tp1"],
+                    callback_data=f"vip_status:{signal_id}:tp1",
+                ),
+                InlineKeyboardButton(
+                    SIGNAL_STATUS_LABELS["tp2"],
+                    callback_data=f"vip_status:{signal_id}:tp2",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    SIGNAL_STATUS_LABELS["tp3"],
+                    callback_data=f"vip_status:{signal_id}:tp3",
+                ),
+                InlineKeyboardButton(
+                    SIGNAL_STATUS_LABELS["tp4"],
+                    callback_data=f"vip_status:{signal_id}:tp4",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    SIGNAL_STATUS_LABELS["tp5"],
+                    callback_data=f"vip_status:{signal_id}:tp5",
+                ),
+                InlineKeyboardButton(
+                    SIGNAL_STATUS_LABELS["break_even"],
+                    callback_data=f"vip_status:{signal_id}:break_even",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    SIGNAL_STATUS_LABELS["sl_hit"],
+                    callback_data=f"vip_status:{signal_id}:sl_hit",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Active Signals",
+                    callback_data="vip_status_select",
+                )
+            ],
+        ]
     )
 
 
@@ -1697,9 +1918,120 @@ async def show_admin_vip(
     await query.edit_message_text(
         "🔐 VIP Signals Management\n\n"
         f"👑 VIP Members: {len(store.vip_user_ids())}\n"
-        f"📢 Saved Signals: {store.count_signals()}\n\n"
+        f"📢 Saved Signals: {store.count_signals()}\n"
+        f"📊 Active Signals: {len(store.list_active_signals())}\n\n"
         "👇 Choose an option:",
         reply_markup=admin_vip_menu(),
+    )
+
+
+async def show_active_signal_selection(
+    query: Any, settings: Settings, store: PaymentStore
+) -> None:
+    if not await ensure_admin(query, settings, store):
+        return
+    signals = store.list_active_signals()
+    if not signals:
+        await query.edit_message_text(
+            "📊 Update Signal Status\n\n"
+            "📭 No active VIP signals are available.",
+            reply_markup=admin_vip_menu(),
+        )
+        return
+    await query.edit_message_text(
+        "📊 Update Signal Status\n\n"
+        "👇 Select the active VIP signal to update:",
+        reply_markup=signal_status_selection_menu(signals),
+    )
+
+
+async def show_signal_status_buttons(
+    query: Any,
+    settings: Settings,
+    store: PaymentStore,
+    signal_id: int,
+) -> None:
+    if not await ensure_admin(query, settings, store):
+        return
+    signal = store.get_signal(signal_id)
+    if not signal:
+        await query.answer("⚠️ Signal not found.", show_alert=True)
+        return
+    active_signals = {int(item["id"]) for item in store.list_active_signals()}
+    if signal_id not in active_signals:
+        await query.edit_message_text(
+            "📊 Signal Status\n\n"
+            "⚠️ This signal is already closed and is no longer active.",
+            reply_markup=admin_vip_menu(),
+        )
+        return
+    await query.edit_message_text(
+        f"📊 Signal #{signal_id}\n\n"
+        f"{signal['content']}\n\n"
+        "👇 Select the status update to post:",
+        reply_markup=signal_status_menu(signal_id),
+    )
+
+
+async def post_signal_status_update(
+    query: Any,
+    context: ContextTypes.DEFAULT_TYPE,
+    settings: Settings,
+    store: PaymentStore,
+    signal_id: int,
+    status: str,
+) -> None:
+    if not await ensure_admin(query, settings, store):
+        return
+    if status not in SIGNAL_STATUS_MESSAGES:
+        await query.answer("⚠️ Invalid signal status.", show_alert=True)
+        return
+    signal = store.get_signal(signal_id)
+    active_signals = {int(item["id"]) for item in store.list_active_signals()}
+    if not signal or signal_id not in active_signals:
+        await query.edit_message_text(
+            "📊 Signal Status\n\n"
+            "⚠️ This signal is no longer active and cannot be updated.",
+            reply_markup=admin_vip_menu(),
+        )
+        return
+
+    update_content = SIGNAL_STATUS_MESSAGES[status]
+    update_id = store.save_signal_status_update(
+        signal_id,
+        status,
+        update_content,
+    )
+    try:
+        await context.bot.send_message(
+            chat_id=settings.vip_channel_id,
+            text=update_content,
+        )
+    except Exception:
+        store.mark_signal_status_failed(update_id)
+        LOGGER.exception(
+            "Failed to post status update for VIP signal #%s.",
+            signal_id,
+        )
+        await query.edit_message_text(
+            "⚠️ Signal status update was saved, but posting to the VIP "
+            "Channel failed.\n\n"
+            "The update was NOT posted. Check the bot's VIP Channel "
+            "permissions and try again.",
+            reply_markup=signal_status_menu(signal_id),
+        )
+        return
+
+    store.mark_signal_status_posted(update_id)
+    next_markup = (
+        admin_vip_menu()
+        if status in SIGNAL_TERMINAL_STATUSES
+        else signal_status_menu(signal_id)
+    )
+    await query.edit_message_text(
+        "✅ Signal status update saved and posted successfully.\n\n"
+        + update_content,
+        reply_markup=next_markup,
     )
 
 
@@ -2409,6 +2741,36 @@ async def button_handler(
                     f"📢 {signal['content']}" for signal in signals
                 )
             await query.edit_message_text(text, reply_markup=admin_vip_menu())
+        return
+    if action == "vip_status_select":
+        await show_active_signal_selection(query, settings, store)
+        return
+    if action.startswith("vip_status_signal:"):
+        try:
+            signal_id = int(action.removeprefix("vip_status_signal:"))
+        except ValueError:
+            await query.answer("⚠️ Invalid signal reference.", show_alert=True)
+            return
+        await show_signal_status_buttons(query, settings, store, signal_id)
+        return
+    if action.startswith("vip_status:"):
+        parts = action.split(":")
+        if len(parts) != 3:
+            await query.answer("⚠️ Invalid status reference.", show_alert=True)
+            return
+        try:
+            signal_id = int(parts[1])
+        except ValueError:
+            await query.answer("⚠️ Invalid signal reference.", show_alert=True)
+            return
+        await post_signal_status_update(
+            query,
+            context,
+            settings,
+            store,
+            signal_id,
+            parts[2],
+        )
         return
     if action == "vip_create":
         if await ensure_admin(query, settings, store):

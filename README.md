@@ -60,6 +60,12 @@ the bot is an administrator with permission to post messages. If delivery
 fails, the signal remains saved for review, but the admin is told explicitly
 that it was not posted.
 
+Admins can use **📊 Update Signal Status** to select any active signal and post
+one of the permanent status updates: TP1 HIT, TP2 HIT, TP3 HIT, TP4 HIT, TP5
+HIT, BREAK EVEN, or SL HIT. Each status update is saved in SQLite and is only
+reported as successful after Telegram accepts the channel post. TP5 HIT and SL
+HIT close the signal; failed deliveries remain retryable.
+
 ## Run the bot
 
 Required values are stored as Replit Secrets:

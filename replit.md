@@ -52,6 +52,9 @@ GBPUSD, USDJPY, and BTCUSD pairs, saved in SQLite, and posted to the configured
 VIP channel only after Telegram accepts the message. Startup verifies that the
 channel is reachable and that the bot has administrator/post-message
 permissions. A failed post is reported to the admin without claiming success.
+Admins can select active signals and post persistent TP1–TP5, Break Even, or
+Stop Loss status updates; TP5 and Stop Loss mark a signal closed only after
+their channel messages are successfully posted.
 
 ## User preferences
 
