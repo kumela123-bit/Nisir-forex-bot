@@ -1,0 +1,1683 @@
+=====================================
+
+ADMIN EXTRA DATA
+
+=====================================
+
+COURSE_STUDENTS = {}
+MENTORSHIP_USERS = {}
+BLOCKED_USERS = set()
+
+ADMINS = {
+ADMIN_TELEGRAM_ID
+}
+
+VIP_SIGNALS = []
+
+BOT_SETTINGS = {
+“welcome_message”: (
+“Welcome to eSniper.\n\n”
+“Choose a service below to get started.”
+),
+“vip_price”: 20,
+“basic_course_price”: 39,
+“advanced_course_price”: 59,
+“mentorship_price”: 99,
+}
+
+=====================================
+
+ADMIN DASHBOARD
+
+=====================================
+
+def admin_dashboard_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "👥 Users",
+            callback_data="admin_users"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "💳 Payments",
+            callback_data="admin_payments"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "📸 Payment Receipts",
+            callback_data="admin_receipts"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "📚 Courses",
+            callback_data="admin_courses"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🔐 VIP Signals",
+            callback_data="admin_vip"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🤝 Mentorship",
+            callback_data="admin_mentorship"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🔑 Access Management",
+            callback_data="admin_access"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "📢 Broadcast",
+            callback_data="admin_broadcast"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "👤 Admins",
+            callback_data="admin_admins"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "📊 Statistics",
+            callback_data="admin_statistics"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⚙️ Bot Settings",
+            callback_data="admin_settings"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🏠 Main Menu",
+            callback_data="main_menu"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+ADMIN BACK BUTTON
+
+=====================================
+
+def admin_back_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "⬅️ Admin Dashboard",
+            callback_data="admin_dashboard"
+        )
+    ]
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+ADMIN CHECK
+
+=====================================
+
+def is_admin(user_id):
+
+return user_id in ADMINS
+
+=====================================
+
+ADMIN DASHBOARD HANDLER
+
+=====================================
+
+async def show_admin_dashboard(query):
+
+if not is_admin(query.from_user.id):
+    await query.answer(
+        "Access denied.",
+        show_alert=True
+    )
+    return
+await query.edit_message_text(
+    "⚙️ Admin Dashboard\n\n"
+    "Choose an option below:",
+    reply_markup=admin_dashboard_menu()
+)
+
+=====================================
+
+👥 USERS MENU
+
+=====================================
+
+def admin_users_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "📋 All Users",
+            callback_data="users_all"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🔎 Search User",
+            callback_data="users_search"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "👑 VIP Users",
+            callback_data="users_vip"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⬅️ Admin Dashboard",
+            callback_data="admin_dashboard"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+USERS SECTION
+
+=====================================
+
+async def show_admin_users(query):
+
+if not is_admin(query.from_user.id):
+    return
+total_users = len(USERS)
+await query.edit_message_text(
+    "👥 Users Management\n\n"
+    f"Total Users: {total_users}\n\n"
+    "Choose an option:",
+    reply_markup=admin_users_menu()
+)
+
+=====================================
+
+ALL USERS
+
+=====================================
+
+async def show_all_users(query):
+
+if not is_admin(query.from_user.id):
+    return
+if not USERS:
+    await query.edit_message_text(
+        "👥 All Users\n\n"
+        "No users found.",
+        reply_markup=admin_users_menu()
+    )
+    return
+text = "👥 All Users\n\n"
+for user_id, user in list(USERS.items())[:50]:
+    name = user.get(
+        "first_name",
+        "Unknown"
+    )
+    username = user.get(
+        "username",
+        ""
+    )
+    username_text = (
+        f"@{username}"
+        if username
+        else "No username"
+    )
+    vip_status = (
+        "👑 VIP"
+        if user_id in VIP_MEMBERS
+        else "👤 Normal"
+    )
+    blocked_status = (
+        "🚫 Blocked"
+        if user.get("blocked", False)
+        else "✅ Active"
+    )
+    text += (
+        f"👤 {name}\n"
+        f"ID: {user_id}\n"
+        f"Username: {username_text}\n"
+        f"Type: {vip_status}\n"
+        f"Status: {blocked_status}\n\n"
+    )
+await query.edit_message_text(
+    text,
+    reply_markup=admin_users_menu()
+)
+
+=====================================
+
+VIP USERS
+
+=====================================
+
+async def show_vip_users(query):
+
+if not is_admin(query.from_user.id):
+    return
+if not VIP_MEMBERS:
+    await query.edit_message_text(
+        "👑 VIP Users\n\n"
+        "No VIP users found.",
+        reply_markup=admin_users_menu()
+    )
+    return
+text = "👑 VIP Users\n\n"
+for user_id in VIP_MEMBERS:
+    user = USERS.get(user_id, {})
+    name = user.get(
+        "first_name",
+        "Unknown"
+    )
+    username = user.get(
+        "username",
+        ""
+    )
+    username_text = (
+        f"@{username}"
+        if username
+        else "No username"
+    )
+    text += (
+        f"👤 {name}\n"
+        f"ID: {user_id}\n"
+        f"Username: {username_text}\n\n"
+    )
+await query.edit_message_text(
+    text,
+    reply_markup=admin_users_menu()
+)
+
+=====================================
+
+💳 PAYMENTS MENU
+
+=====================================
+
+def admin_payments_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "⏳ Pending Payments",
+            callback_data="payments_pending"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "📜 Payment History",
+            callback_data="payments_history"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⬅️ Admin Dashboard",
+            callback_data="admin_dashboard"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+PAYMENTS SECTION
+
+=====================================
+
+async def show_admin_payments(query):
+
+if not is_admin(query.from_user.id):
+    return
+pending = sum(
+    1
+    for payment in PAYMENTS.values()
+    if payment.get("status") == "pending"
+)
+approved = sum(
+    1
+    for payment in PAYMENTS.values()
+    if payment.get("status") == "approved"
+)
+rejected = sum(
+    1
+    for payment in PAYMENTS.values()
+    if payment.get("status") == "rejected"
+)
+await query.edit_message_text(
+    "💳 Payments Management\n\n"
+    f"💰 Total Payments: {len(PAYMENTS)}\n"
+    f"⏳ Pending: {pending}\n"
+    f"✅ Approved: {approved}\n"
+    f"❌ Rejected: {rejected}\n\n"
+    "Choose an option:",
+    reply_markup=admin_payments_menu()
+)
+
+=====================================
+
+PENDING PAYMENTS
+
+=====================================
+
+async def show_pending_payments(query):
+
+if not is_admin(query.from_user.id):
+    return
+pending_payments = [
+    payment
+    for payment in PAYMENTS.values()
+    if payment.get("status") == "pending"
+]
+if not pending_payments:
+    await query.edit_message_text(
+        "⏳ Pending Payments\n\n"
+        "No pending payments.",
+        reply_markup=admin_payments_menu()
+    )
+    return
+text = "💳 Pending Payments\n\n"
+keyboard = []
+for payment in pending_payments:
+    payment_id = payment.get("payment_id")
+    product_name = payment.get(
+        "product_name",
+        "Unknown"
+    )
+    amount = payment.get("amount", 0)
+    text += (
+        f"🆔 {payment_id}\n"
+        f"📦 Package: {product_name}\n"
+        f"💰 Amount: ${amount}\n\n"
+    )
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                f"💳 Open {payment_id}",
+                callback_data=(
+                    f"payment_open_{payment_id}"
+                )
+            )
+        ]
+    )
+keyboard.append(
+    [
+        InlineKeyboardButton(
+            "⬅️ Payments",
+            callback_data="admin_payments"
+        )
+    ]
+)
+await query.edit_message_text(
+    text,
+    reply_markup=InlineKeyboardMarkup(keyboard)
+)
+
+=====================================
+
+PAYMENT HISTORY
+
+=====================================
+
+async def show_payment_history(query):
+
+if not is_admin(query.from_user.id):
+    return
+if not PAYMENTS:
+    await query.edit_message_text(
+        "📜 Payment History\n\n"
+        "No payments found.",
+        reply_markup=admin_payments_menu()
+    )
+    return
+text = "📜 Payment History\n\n"
+for payment in list(PAYMENTS.values())[-50:]:
+    payment_id = payment.get(
+        "payment_id",
+        "Unknown"
+    )
+    product_name = payment.get(
+        "product_name",
+        "Unknown"
+    )
+    amount = payment.get(
+        "amount",
+        0
+    )
+    status = payment.get(
+        "status",
+        "unknown"
+    )
+    text += (
+        f"🆔 {payment_id}\n"
+        f"📦 {product_name}\n"
+        f"💰 ${amount}\n"
+        f"📊 {status.upper()}\n\n"
+    )
+await query.edit_message_text(
+    text,
+    reply_markup=admin_payments_menu()
+)
+
+=====================================
+
+PAYMENT REVIEW MENU
+
+=====================================
+
+def payment_review_menu(payment_id):
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "📸 View Receipt",
+            callback_data=f"receipt_view_{payment_id}"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "✅ Approve Payment",
+            callback_data=f"payment_approve_{payment_id}"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "❌ Reject Payment",
+            callback_data=f"payment_reject_{payment_id}"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⬅️ Payments",
+            callback_data="admin_payments"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+OPEN PAYMENT
+
+=====================================
+
+async def open_payment(query, payment_id):
+
+payment = PAYMENTS.get(payment_id)
+if not payment:
+    await query.answer(
+        "Payment not found.",
+        show_alert=True
+    )
+    return
+username = payment.get(
+    "username",
+    ""
+)
+username_text = (
+    f"@{username}"
+    if username
+    else "No username"
+)
+text = (
+    "💳 Payment Details\n\n"
+    f"Payment ID: {payment_id}\n"
+    f"Customer: {payment.get('customer_name', 'Unknown')}\n"
+    f"Username: {username_text}\n"
+    f"Package: {payment.get('product_name', 'Unknown')}\n"
+    f"Amount: ${payment.get('amount', 0)}\n"
+    f"Method: {payment.get('method', 'Bank')}\n"
+    f"Status: {payment.get('status', 'pending')}"
+)
+await query.edit_message_text(
+    text,
+    reply_markup=payment_review_menu(payment_id)
+)
+
+=====================================
+
+📸 PAYMENT RECEIPTS MENU
+
+=====================================
+
+def admin_receipts_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "⏳ Pending Receipts",
+            callback_data="receipts_pending"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "📜 All Receipts",
+            callback_data="receipts_all"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⬅️ Admin Dashboard",
+            callback_data="admin_dashboard"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+PAYMENT RECEIPTS SECTION
+
+=====================================
+
+async def show_admin_receipts(query):
+
+if not is_admin(query.from_user.id):
+    return
+receipts = [
+    payment
+    for payment in PAYMENTS.values()
+    if payment.get("receipt_file_id")
+]
+pending_receipts = [
+    payment
+    for payment in receipts
+    if payment.get("status") == "pending"
+]
+await query.edit_message_text(
+    "📸 Payment Receipts\n\n"
+    f"📸 Total Receipts: {len(receipts)}\n"
+    f"⏳ Pending Review: {len(pending_receipts)}\n\n"
+    "Choose an option:",
+    reply_markup=admin_receipts_menu()
+)
+
+=====================================
+
+PENDING RECEIPTS
+
+=====================================
+
+async def show_pending_receipts(query):
+
+if not is_admin(query.from_user.id):
+    return
+receipts = [
+    payment
+    for payment in PAYMENTS.values()
+    if payment.get("receipt_file_id")
+    and payment.get("status") == "pending"
+]
+if not receipts:
+    await query.edit_message_text(
+        "⏳ Pending Receipts\n\n"
+        "No pending receipts.",
+        reply_markup=admin_receipts_menu()
+    )
+    return
+text = "📸 Pending Payment Receipts\n\n"
+keyboard = []
+for payment in receipts:
+    payment_id = payment.get("payment_id")
+    text += (
+        f"🆔 {payment_id}\n"
+        f"👤 {payment.get('customer_name', 'Unknown')}\n"
+        f"📦 {payment.get('product_name', 'Unknown')}\n"
+        f"💰 ${payment.get('amount', 0)}\n\n"
+    )
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                f"📸 View {payment_id}",
+                callback_data=f"receipt_view_{payment_id}"
+            )
+        ]
+    )
+keyboard.append(
+    [
+        InlineKeyboardButton(
+            "⬅️ Payment Receipts",
+            callback_data="admin_receipts"
+        )
+    ]
+)
+await query.edit_message_text(
+    text,
+    reply_markup=InlineKeyboardMarkup(keyboard)
+)
+
+=====================================
+
+ALL RECEIPTS
+
+=====================================
+
+async def show_all_receipts(query):
+
+if not is_admin(query.from_user.id):
+    return
+receipts = [
+    payment
+    for payment in PAYMENTS.values()
+    if payment.get("receipt_file_id")
+]
+if not receipts:
+    await query.edit_message_text(
+        "📸 All Receipts\n\n"
+        "No receipts found.",
+        reply_markup=admin_receipts_menu()
+    )
+    return
+text = "📸 All Payment Receipts\n\n"
+keyboard = []
+for payment in receipts:
+    payment_id = payment.get("payment_id")
+    status = payment.get(
+        "status",
+        "unknown"
+    )
+    text += (
+        f"🆔 {payment_id}\n"
+        f"👤 {payment.get('customer_name', 'Unknown')}\n"
+        f"📊 {status.upper()}\n\n"
+    )
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                f"📸 View {payment_id}",
+                callback_data=f"receipt_view_{payment_id}"
+            )
+        ]
+    )
+keyboard.append(
+    [
+        InlineKeyboardButton(
+            "⬅️ Payment Receipts",
+            callback_data="admin_receipts"
+        )
+    ]
+)
+await query.edit_message_text(
+    text,
+    reply_markup=InlineKeyboardMarkup(keyboard)
+)
+
+=====================================
+
+VIEW RECEIPT
+
+=====================================
+
+async def view_receipt(
+query,
+context,
+payment_id
+):
+
+payment = PAYMENTS.get(payment_id)
+if not payment:
+    await query.answer(
+        "Payment not found.",
+        show_alert=True
+    )
+    return
+receipt_file_id = payment.get(
+    "receipt_file_id"
+)
+if not receipt_file_id:
+    await query.answer(
+        "Receipt not found.",
+        show_alert=True
+    )
+    return
+caption = (
+    "📸 Payment Receipt\n\n"
+    f"Payment ID: {payment_id}\n"
+    f"Customer: {payment.get('customer_name', 'Unknown')}\n"
+    f"Package: {payment.get('product_name', 'Unknown')}\n"
+    f"Amount: ${payment.get('amount', 0)}\n"
+    f"Status: {payment.get('status', 'pending')}"
+)
+await context.bot.send_photo(
+    chat_id=query.from_user.id,
+    photo=receipt_file_id,
+    caption=caption,
+    reply_markup=payment_review_menu(payment_id)
+)
+
+=====================================
+
+📚 ADMIN COURSES MENU
+
+=====================================
+
+def admin_courses_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "📋 View Courses",
+            callback_data="courses_view"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "➕ Add Course",
+            callback_data="courses_add"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "✏️ Edit Course",
+            callback_data="courses_edit"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🗑 Delete Course",
+            callback_data="courses_delete"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "👨‍🎓 Course Students",
+            callback_data="courses_students"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⬅️ Admin Dashboard",
+            callback_data="admin_dashboard"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+ADMIN COURSES
+
+=====================================
+
+async def show_admin_courses(query):
+
+await query.edit_message_text(
+    "📚 Courses Management\n\n"
+    "Manage your courses below.",
+    reply_markup=admin_courses_menu()
+)
+
+async def show_courses_admin_view(query):
+
+text = (
+    "📚 Available Courses\n\n"
+    "1️⃣ Basic Smart Money Concept\n"
+    f"💰 Price: ${BOT_SETTINGS['basic_course_price']}\n\n"
+    "2️⃣ Advanced SMC Mastery\n"
+    f"💰 Price: ${BOT_SETTINGS['advanced_course_price']}\n\n"
+    "Use the buttons below to manage courses."
+)
+await query.edit_message_text(
+    text,
+    reply_markup=admin_courses_menu()
+)
+
+async def show_course_students(query):
+
+total = len(COURSE_STUDENTS)
+await query.edit_message_text(
+    "👨‍🎓 Course Students\n\n"
+    f"Total Course Students: {total}\n\n"
+    "Course purchase information will appear here.",
+    reply_markup=admin_courses_menu()
+)
+
+=====================================
+
+🔐 VIP SIGNALS MENU
+
+=====================================
+
+def admin_vip_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "📢 Create VIP Signal",
+            callback_data="vip_create"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "📋 VIP Members",
+            callback_data="vip_members"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🔓 Grant VIP Access",
+            callback_data="vip_grant"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🔒 Remove VIP Access",
+            callback_data="vip_remove"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "📝 Manage VIP Content",
+            callback_data="vip_content"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⬅️ Admin Dashboard",
+            callback_data="admin_dashboard"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+ADMIN VIP SIGNALS
+
+=====================================
+
+async def show_admin_vip(query):
+
+await query.edit_message_text(
+    "🔐 VIP Signals Management\n\n"
+    f"👑 VIP Members: {len(VIP_MEMBERS)}\n"
+    f"📢 Saved Signals: {len(VIP_SIGNALS)}\n\n"
+    "Choose an option:",
+    reply_markup=admin_vip_menu()
+)
+
+async def show_vip_members_admin(query):
+
+if not VIP_MEMBERS:
+    await query.edit_message_text(
+        "👑 VIP Members\n\n"
+        "No VIP members found.",
+        reply_markup=admin_vip_menu()
+    )
+    return
+text = "👑 VIP Members\n\n"
+for user_id in VIP_MEMBERS:
+    user = USERS.get(user_id, {})
+    name = user.get(
+        "first_name",
+        "Unknown"
+    )
+    username = user.get(
+        "username",
+        ""
+    )
+    text += (
+        f"👤 {name}\n"
+        f"ID: {user_id}\n"
+    )
+    if username:
+        text += f"Username: @{username}\n"
+    text += "\n"
+await query.edit_message_text(
+    text,
+    reply_markup=admin_vip_menu()
+)
+
+=====================================
+
+🤝 MENTORSHIP MENU
+
+=====================================
+
+def admin_mentorship_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "📋 Mentorship Requests",
+            callback_data="mentorship_requests"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "👥 Mentorship Users",
+            callback_data="mentorship_users"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "💰 Mentorship Price",
+            callback_data="mentorship_price"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⬅️ Admin Dashboard",
+            callback_data="admin_dashboard"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+ADMIN MENTORSHIP
+
+=====================================
+
+async def show_admin_mentorship(query):
+
+await query.edit_message_text(
+    "🤝 Mentorship Management\n\n"
+    f"👥 Active Users: {len(MENTORSHIP_USERS)}\n"
+    f"💰 Current Price: "
+    f"${BOT_SETTINGS['mentorship_price']}\n\n"
+    "Choose an option:",
+    reply_markup=admin_mentorship_menu()
+)
+
+async def show_mentorship_users(query):
+
+if not MENTORSHIP_USERS:
+    await query.edit_message_text(
+        "🤝 Mentorship Users\n\n"
+        "No mentorship users found.",
+        reply_markup=admin_mentorship_menu()
+    )
+    return
+text = "🤝 Mentorship Users\n\n"
+for user_id in MENTORSHIP_USERS:
+    user = USERS.get(user_id, {})
+    text += (
+        f"👤 {user.get('first_name', 'Unknown')}\n"
+        f"ID: {user_id}\n\n"
+    )
+await query.edit_message_text(
+    text,
+    reply_markup=admin_mentorship_menu()
+)
+
+=====================================
+
+🔑 ACCESS MANAGEMENT MENU
+
+=====================================
+
+def admin_access_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "👤 View User Access",
+            callback_data="access_view"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "📚 Course Access",
+            callback_data="access_course"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🔐 VIP Access",
+            callback_data="access_vip"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🚫 Revoke Access",
+            callback_data="access_revoke"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⏳ Access Status",
+            callback_data="access_status"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⬅️ Admin Dashboard",
+            callback_data="admin_dashboard"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+ADMIN ACCESS MANAGEMENT
+
+=====================================
+
+async def show_admin_access(query):
+
+await query.edit_message_text(
+    "🔑 Access Management\n\n"
+    "Manage user course and VIP access.",
+    reply_markup=admin_access_menu()
+)
+
+async def show_access_status(query):
+
+text = (
+    "⏳ Access Status\n\n"
+    f"👑 VIP Members: {len(VIP_MEMBERS)}\n"
+    f"📚 Course Students: {len(COURSE_STUDENTS)}\n"
+    f"🤝 Mentorship Users: {len(MENTORSHIP_USERS)}"
+)
+await query.edit_message_text(
+    text,
+    reply_markup=admin_access_menu()
+)
+
+=====================================
+
+📢 BROADCAST MENU
+
+=====================================
+
+def admin_broadcast_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "👥 Broadcast to All Users",
+            callback_data="broadcast_all"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "👑 Broadcast to VIP",
+            callback_data="broadcast_vip"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "📚 Broadcast to Course Users",
+            callback_data="broadcast_courses"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⬅️ Admin Dashboard",
+            callback_data="admin_dashboard"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+ADMIN BROADCAST
+
+=====================================
+
+async def show_admin_broadcast(query):
+
+await query.edit_message_text(
+    "📢 Broadcast\n\n"
+    "Select the users you want "
+    "to send a message to.",
+    reply_markup=admin_broadcast_menu()
+)
+
+async def broadcast_info(query, target):
+
+if target == "all":
+    count = len(USERS)
+    name = "All Users"
+elif target == "vip":
+    count = len(VIP_MEMBERS)
+    name = "VIP Users"
+else:
+    count = len(COURSE_STUDENTS)
+    name = "Course Users"
+await query.edit_message_text(
+    "📢 Broadcast Ready\n\n"
+    f"Target: {name}\n"
+    f"Recipients: {count}\n\n"
+    "Send your message as the next "
+    "message to create the broadcast.",
+    reply_markup=admin_broadcast_menu()
+)
+
+=====================================
+
+👤 ADMINS MENU
+
+=====================================
+
+def admin_admins_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "📋 Admin List",
+            callback_data="admins_list"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "➕ Add Admin",
+            callback_data="admins_add"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "➖ Remove Admin",
+            callback_data="admins_remove"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🔐 Admin Permissions",
+            callback_data="admins_permissions"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⬅️ Admin Dashboard",
+            callback_data="admin_dashboard"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+ADMIN MANAGEMENT
+
+=====================================
+
+async def show_admin_admins(query):
+
+await query.edit_message_text(
+    "👤 Admin Management\n\n"
+    f"Total Admins: {len(ADMINS)}\n\n"
+    "Choose an option:",
+    reply_markup=admin_admins_menu()
+)
+
+async def show_admin_list(query):
+
+text = "👤 Admin List\n\n"
+for admin_id in ADMINS:
+    if admin_id == ADMIN_TELEGRAM_ID:
+        role = "👑 Owner"
+    else:
+        role = "🛡 Admin"
+    text += (
+        f"{role}\n"
+        f"ID: {admin_id}\n\n"
+    )
+await query.edit_message_text(
+    text,
+    reply_markup=admin_admins_menu()
+)
+
+=====================================
+
+📊 STATISTICS MENU
+
+=====================================
+
+def admin_statistics_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "🔄 Refresh Statistics",
+            callback_data="statistics_refresh"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⬅️ Admin Dashboard",
+            callback_data="admin_dashboard"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+ADMIN STATISTICS
+
+=====================================
+
+async def show_admin_statistics(query):
+
+total_payments = len(PAYMENTS)
+pending = sum(
+    1
+    for payment in PAYMENTS.values()
+    if payment.get("status") == "pending"
+)
+approved = sum(
+    1
+    for payment in PAYMENTS.values()
+    if payment.get("status") == "approved"
+)
+revenue = sum(
+    payment.get("amount", 0)
+    for payment in PAYMENTS.values()
+    if payment.get("status") == "approved"
+)
+text = (
+    "📊 eSniper Statistics\n\n"
+    f"👥 Total Users: {len(USERS)}\n"
+    f"💳 Total Payments: {total_payments}\n"
+    f"⏳ Pending Payments: {pending}\n"
+    f"✅ Approved Payments: {approved}\n"
+    f"💰 Total Revenue: ${revenue}\n"
+    f"👑 VIP Members: {len(VIP_MEMBERS)}\n"
+    f"📚 Course Students: {len(COURSE_STUDENTS)}\n"
+    f"🤝 Mentorship Users: {len(MENTORSHIP_USERS)}"
+)
+await query.edit_message_text(
+    text,
+    reply_markup=admin_statistics_menu()
+)
+
+=====================================
+
+⚙️ BOT SETTINGS MENU
+
+=====================================
+
+def admin_settings_menu():
+
+keyboard = [
+    [
+        InlineKeyboardButton(
+            "👋 Welcome Message",
+            callback_data="settings_welcome"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🏦 Payment Information",
+            callback_data="settings_payment"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "💳 Bank Details",
+            callback_data="settings_bank"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "🔐 VIP Price",
+            callback_data="settings_vip_price"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "📚 Course Settings",
+            callback_data="settings_courses"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "👤 Admin Settings",
+            callback_data="settings_admins"
+        )
+    ],
+    [
+        InlineKeyboardButton(
+            "⬅️ Admin Dashboard",
+            callback_data="admin_dashboard"
+        )
+    ],
+]
+return InlineKeyboardMarkup(keyboard)
+
+=====================================
+
+ADMIN BOT SETTINGS
+
+=====================================
+
+async def show_admin_settings(query):
+
+await query.edit_message_text(
+    "⚙️ Bot Settings\n\n"
+    "Manage your bot settings below.",
+    reply_markup=admin_settings_menu()
+)
+
+async def show_payment_settings(query):
+
+await query.edit_message_text(
+    "💳 Payment Information\n\n"
+    "Bank Transfer / Manual Payment\n\n"
+    "Payment details are configured "
+    "inside the bot settings.",
+    reply_markup=admin_settings_menu()
+)
+
+async def show_vip_price_settings(query):
+
+await query.edit_message_text(
+    "🔐 VIP Price\n\n"
+    f"Current VIP Price: "
+    f"${BOT_SETTINGS['vip_price']}\n\n"
+    "Price editing can be connected "
+    "to admin input.",
+    reply_markup=admin_settings_menu()
+)
+
+async def show_course_settings(query):
+
+await query.edit_message_text(
+    "📚 Course Settings\n\n"
+    f"Basic SMC: "
+    f"${BOT_SETTINGS['basic_course_price']}\n\n"
+    f"Advanced SMC: "
+    f"${BOT_SETTINGS['advanced_course_price']}\n\n"
+    f"Mentorship: "
+    f"${BOT_SETTINGS['mentorship_price']}",
+    reply_markup=admin_settings_menu()
+)
+
+=====================================
+
+ADD ALL THESE ROUTES
+
+TO button_handler()
+
+Put these after:
+
+action = query.data
+
+=====================================
+
+=====================================
+
+ADMIN DASHBOARD
+
+=====================================
+
+if action == “admin_dashboard”:
+
+await show_admin_dashboard(query)
+return
+
+=====================================
+
+USERS
+
+=====================================
+
+if action == “admin_users”:
+
+await show_admin_users(query)
+return
+
+if action == “users_all”:
+
+await show_all_users(query)
+return
+
+if action == “users_vip”:
+
+await show_vip_users(query)
+return
+
+=====================================
+
+PAYMENTS
+
+=====================================
+
+if action == “admin_payments”:
+
+await show_admin_payments(query)
+return
+
+if action == “payments_pending”:
+
+await show_pending_payments(query)
+return
+
+if action == “payments_history”:
+
+await show_payment_history(query)
+return
+
+if action.startswith(“payment_open_”):
+
+payment_id = action.replace(
+    "payment_open_",
+    "",
+    1
+)
+await open_payment(
+    query,
+    payment_id
+)
+return
+
+=====================================
+
+PAYMENT RECEIPTS
+
+=====================================
+
+if action == “admin_receipts”:
+
+await show_admin_receipts(query)
+return
+
+if action == “receipts_pending”:
+
+await show_pending_receipts(query)
+return
+
+if action == “receipts_all”:
+
+await show_all_receipts(query)
+return
+
+if action.startswith(“receipt_view_”):
+
+payment_id = action.replace(
+    "receipt_view_",
+    "",
+    1
+)
+await view_receipt(
+    query,
+    context,
+    payment_id
+)
+return
+
+=====================================
+
+ADMIN COURSES
+
+=====================================
+
+if action == “admin_courses”:
+
+await show_admin_courses(query)
+return
+
+if action == “courses_view”:
+
+await show_courses_admin_view(query)
+return
+
+if action == “courses_students”:
+
+await show_course_students(query)
+return
+
+=====================================
+
+ADMIN VIP SIGNALS
+
+=====================================
+
+if action == “admin_vip”:
+
+await show_admin_vip(query)
+return
+
+if action == “vip_members”:
+
+await show_vip_members_admin(query)
+return
+
+=====================================
+
+ADMIN MENTORSHIP
+
+=====================================
+
+if action == “admin_mentorship”:
+
+await show_admin_mentorship(query)
+return
+
+if action == “mentorship_users”:
+
+await show_mentorship_users(query)
+return
+
+=====================================
+
+ACCESS MANAGEMENT
+
+=====================================
+
+if action == “admin_access”:
+
+await show_admin_access(query)
+return
+
+if action == “access_status”:
+
+await show_access_status(query)
+return
+
+=====================================
+
+BROADCAST
+
+=====================================
+
+if action == “admin_broadcast”:
+
+await show_admin_broadcast(query)
+return
+
+if action == “broadcast_all”:
+
+await broadcast_info(
+    query,
+    "all"
+)
+return
+
+if action == “broadcast_vip”:
+
+await broadcast_info(
+    query,
+    "vip"
+)
+return
+
+if action == “broadcast_courses”:
+
+await broadcast_info(
+    query,
+    "courses"
+)
+return
+
+=====================================
+
+ADMINS
+
+=====================================
+
+if action == “admin_admins”:
+
+await show_admin_admins(query)
+return
+
+if action == “admins_list”:
+
+await show_admin_list(query)
+return
+
+=====================================
+
+STATISTICS
+
+=====================================
+
+if action == “admin_statistics”:
+
+await show_admin_statistics(query)
+return
+
+if action == “statistics_refresh”:
+
+await show_admin_statistics(query)
+return
+
+=====================================
+
+BOT SETTINGS
+
+=====================================
+
+if action == “admin_settings”:
+
+await show_admin_settings(query)
+return
+
+if action == “settings_payment”:
+
+await show_payment_settings(query)
+return
+
+if action == “settings_vip_price”:
+
+await show_vip_price_settings(query)
+return
+
+if action == “settings_courses”:
+
+await show_course_settings(query)
+return
