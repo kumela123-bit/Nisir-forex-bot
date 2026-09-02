@@ -1,6 +1,6 @@
 # Nisir Forex Academy Telegram Bot
 
-A Python Telegram sales bot for academy courses, manual receipt review, and VIP channel access.
+A Python Telegram sales bot for academy courses, a Master Class, manual receipt review, and VIP channel access.
 
 ## Run & Operate
 
@@ -37,6 +37,7 @@ A Python Telegram sales bot for academy courses, manual receipt review, and VIP 
 - Restricts course catalog management to the configured owner admin.
 - Requires explicit confirmation before sending an admin broadcast.
 - Generates VIP signals from a selected direction, supported pair, and entry price with fixed pip-based SL/TP rules.
+- Includes a purchasable Master Class product in the same receipt-review payment flow.
 
 ## Product
 

@@ -96,6 +96,7 @@ class Course:
 PRODUCTS: dict[str, Product] = {
     "basic_smc": Product("Basic Smart Money Concept", "$39"),
     "advanced_smc": Product("Advanced SMC Mastery", "$59"),
+    "master_class": Product("Forex Master Class", "$79"),
     "vip": Product("VIP Signal", "$20"),
     "mentorship": Product("Private 1-to-1 Mentorship", "$99"),
 }
@@ -451,6 +452,17 @@ class PaymentStore:
                     SELECT course_id FROM courses WHERE active = 1
                 )
                   AND status = 'approved'
+                ORDER BY updated_at DESC
+                """
+            ).fetchall()
+        return [int(row["user_id"]) for row in rows]
+
+    def master_class_user_ids(self) -> list[int]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT user_id FROM payments
+                WHERE product_id = 'master_class' AND status = 'approved'
                 ORDER BY updated_at DESC
                 """
             ).fetchall()
@@ -848,6 +860,7 @@ def generate_vip_signal(direction: str, pair: str, entry: Decimal) -> str:
 def main_menu(user_id: int, settings: Settings) -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton("📚 Courses", callback_data="courses")],
+        [InlineKeyboardButton("🎓 Master Class", callback_data="master_class")],
         [InlineKeyboardButton("🔐 VIP Signal", callback_data="vip_signal")],
         [
             InlineKeyboardButton(
@@ -1312,6 +1325,18 @@ def product_description(product_id: str) -> tuple[str, str]:
             "❌ Not included: personalized trading plan, lifetime support, "
             "or account-flip coaching.",
             "courses",
+        )
+    if product_id == "master_class":
+        return (
+            "🎓 Forex Master Class\n\n"
+            "🔥 A complete practical trading program\n\n"
+            "✅ Market structure and Smart Money Concepts\n"
+            "✅ High-probability trade setups\n"
+            "✅ Entry, Stop Loss, and Take Profit planning\n"
+            "✅ Risk management and position sizing\n"
+            "✅ Trading psychology and discipline\n"
+            "✅ Practical chart-marking framework",
+            "main_menu",
         )
     if product_id == "mentorship":
         return (
@@ -2126,6 +2151,7 @@ async def show_access_status(
         "⏳ Access Status\n\n"
         f"👑 VIP Members: {len(store.vip_user_ids())}\n"
         f"📚 Course Students: {len(store.course_user_ids())}\n"
+        f"🎓 Master Class Students: {len(store.master_class_user_ids())}\n"
         f"🤝 Mentorship Users: {len(store.mentorship_user_ids())}",
         reply_markup=admin_access_menu(),
     )
@@ -3525,6 +3551,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 f"👤 User Access\n\n{user_display(store.get_user(target_user_id), target_user_id)}\n\n"
                 f"👑 VIP: {'Yes' if target_user_id in store.vip_user_ids() else 'No'}\n"
                 f"📚 Course: {'Yes' if target_user_id in store.course_user_ids() else 'No'}\n"
+                f"🎓 Master Class: {'Yes' if target_user_id in store.master_class_user_ids() else 'No'}\n"
                 f"🤝 Mentorship: {'Yes' if target_user_id in store.mentorship_user_ids() else 'No'}\n"
                 f"💳 Latest Payment: {payment_status_label(payment['status']) if payment else 'None'}"
             )

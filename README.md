@@ -6,7 +6,7 @@ A Telegram sales and payment-verification bot built with Python and
 ## User flow
 
 1. `/start` opens the academy menu.
-2. A user selects a course, VIP Signal, or private mentorship.
+2. A user selects a course, Master Class, VIP Signal, or private mentorship.
 3. The bot shows the configured payment instructions.
 4. The user confirms payment and uploads a receipt photo.
 5. The receipt is forwarded to the admin with **Approve** and **Reject** buttons.
@@ -20,6 +20,7 @@ restart. The database path can be changed with `PAYMENTS_DB_PATH`.
 The configured admin can open **⚙️ Admin Dashboard** from `/start` to view:
 
 - 👥 Users and VIP members
+- 🎓 Master Class purchasers
 - 💳 Pending payments and payment history
 - 📸 Pending and historical receipts
 - 📚 Persistent course catalog, course editing, and course students
