@@ -804,10 +804,24 @@ def format_signal_price(value: Decimal, pair: str) -> str:
 
 
 def generate_vip_signal(direction: str, pair: str, entry: Decimal) -> str:
-    pip_size = SIGNAL_PIP_SIZES[pair]
+    pip_size = (
+        Decimal("0.1")
+        if pair == "XAUUSD"
+        else SIGNAL_PIP_SIZES[pair]
+    )
     direction = direction.upper()
-    multiplier = Decimal("1") if direction == "BUY" else Decimal("-1")
-    stop_loss = entry - (multiplier * Decimal("40") * pip_size)
+    multiplier = (
+        Decimal("1")
+        if pair == "XAUUSD"
+        else Decimal("1")
+        if direction == "BUY"
+        else Decimal("-1")
+    )
+    stop_loss = (
+        entry + (Decimal("40") * pip_size)
+        if pair == "XAUUSD"
+        else entry - (multiplier * Decimal("40") * pip_size)
+    )
     take_profits = [
         entry + (multiplier * Decimal(index * 30) * pip_size)
         for index in range(1, 6)
